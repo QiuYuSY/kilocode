@@ -7,10 +7,18 @@ import path from "path"
 
 const root = path.join(import.meta.dir, "..", "..")
 const wrapper = path.join(root, "bin", "kilo")
+const launcher = path.join(root, "bin", "kilo.cjs")
 
 describe("npm install artifact behavior", () => {
-  test("keeps the CLI wrapper contract", async () => {
+  test("keeps the shell wrapper contract", async () => {
     const text = await fs.readFile(wrapper, "utf8")
+    expect(text.startsWith("#!/bin/sh")).toBe(true)
+    expect(text).toContain("command -v node")
+    expect(text).toContain("kilo.cjs")
+  })
+
+  test("keeps the JS launcher contract", async () => {
+    const text = await fs.readFile(launcher, "utf8")
     expect(text.startsWith("#!/usr/bin/env node")).toBe(true)
     expect(text).toContain("const envPath = process.env.KILO_BIN_PATH")
     expect(text).toContain('const base = "@kilocode/cli-" + platform + "-" + arch')
@@ -32,6 +40,7 @@ describe("npm install artifact behavior", () => {
       await fs.mkdir(bin, { recursive: true })
       await fs.mkdir(prefix, { recursive: true })
       await fs.copyFile(wrapper, path.join(bin, "kilo"))
+      await fs.copyFile(launcher, path.join(bin, "kilo.cjs"))
       await Bun.write(
         path.join(pkg, "package.json"),
         JSON.stringify(

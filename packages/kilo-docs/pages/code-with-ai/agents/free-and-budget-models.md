@@ -11,30 +11,14 @@ description: Learn how to use Kilo Code effectively while minimizing or eliminat
 
 ### Kilo Gateway Free Models
 
-From time to time, Kilo works with AI inference providers to offer free models. These are available through the Kilo Gateway. Currently, we are offering these free models:
+From time to time, Kilo partners with AI inference providers to offer **free models** through the **Kilo Gateway**. These models may be available for limited periods, such as evaluation launches, promotions, or preview releases.
 
-- **MiniMax M2.1 (free)** - A capable model from MiniMax with strong general-purpose performance.
-- **Z.AI: GLM 4.7 (free)** - Latest variant of the GLM family, purpose-built for agent-centric applications.
-- **MoonshotAI: Kimi K2.5 (free)** - Optimized for agentic capabilities, including advanced tool use, reasoning, and code synthesis.
-- **Giga Potato (free)** - A stealth release model that is free in its evaluation period.
-- **Arcee AI: Trinity Large Preview (free)** - A preview model from Arcee AI with strong capabilities.
+Because the available models change frequently, we do not maintain a static list in the documentation.
 
-### OpenRouter Free Tier Models
+You can always find the current list of free models:
 
-OpenRouter offers several models with generous free tiers. **Note:** You'll need to create a free OpenRouter account to access these models.
-
-**Setup:**
-
-1. Create a free [OpenRouter account](https://openrouter.ai)
-2. Get your API key from the dashboard
-3. Configure Kilo Code with the OpenRouter provider
-
-**Available free models:**
-
-- **Qwen3 Coder (free)** - Optimized for agentic coding tasks such as function calling, tool use, and long-context reasoning over repositories.
-- **Z.AI: GLM 4.5 Air (free)** - Lightweight variant of the GLM-4.5 family, purpose-built for agent-centric applications.
-- **DeepSeek: R1 0528 (free)** - Performance on par with OpenAI o1, but open-sourced and with fully open reasoning tokens.
-- **MoonshotAI: Kimi K2 (free)** - Optimized for agentic capabilities, including advanced tool use, reasoning, and code synthesis.
+- On the leaderboard: https://kilo.ai/leaderboard  
+- By selecting the **`Kilo:Free`** model in the model picker
 
 ## Cost-Effective Premium Models
 

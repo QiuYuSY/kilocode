@@ -1,4 +1,4 @@
-import { spawn, ChildProcess } from "child_process"
+import { spawn, execSync, ChildProcess } from "child_process"
 import * as crypto from "crypto"
 import * as fs from "fs"
 import * as path from "path"
@@ -12,13 +12,27 @@ export interface ServerInstance {
   process: ChildProcess
 }
 
+type ExitListener = (code: number | null) => void
+
 const STARTUP_TIMEOUT_SECONDS = 30
 
 export class ServerManager {
   private instance: ServerInstance | null = null
   private startupPromise: Promise<ServerInstance> | null = null
+  private readonly exitListeners = new Set<ExitListener>()
 
   constructor(private readonly context: vscode.ExtensionContext) {}
+
+  /**
+   * Subscribe to server process exit events. Returns unsubscribe function.
+   * Listeners are called when the server process exits unexpectedly (after startup).
+   */
+  onExit(listener: ExitListener): () => void {
+    this.exitListeners.add(listener)
+    return () => {
+      this.exitListeners.delete(listener)
+    }
+  }
 
   /**
    * Get or start the server instance
@@ -116,7 +130,8 @@ export class ServerManager {
 
       serverProcess.on("exit", (code) => {
         console.log("[Kilo New] ServerManager: 🛑 Process exited with code:", code)
-        if (this.instance?.process === serverProcess) {
+        const wasRunning = this.instance?.process === serverProcess
+        if (wasRunning) {
           this.instance = null
         }
         if (!resolved) {
@@ -126,6 +141,11 @@ export class ServerManager {
             cliPath,
           )
           reject(new ServerStartupError(userMessage, userDetails))
+        } else if (wasRunning) {
+          // Server died after successful startup — notify listeners
+          for (const listener of this.exitListeners) {
+            listener(code)
+          }
         }
       })
 
@@ -156,7 +176,9 @@ export class ServerManager {
    * Kill a process and its entire process group.
    * On Unix, we send the signal to -pid (negative) to reach the whole group,
    * mirroring the desktop app's ProcessGroup::leader() + start_kill() pattern.
-   * On Windows, process.kill() on the child handle is sufficient.
+   * On Windows, use `taskkill /T /F` to kill the entire process tree —
+   * plain `proc.kill()` only terminates the direct child, leaving orphan
+   * subprocesses (MCP servers, subagents) that can hold ports and file locks.
    */
   private static killProcess(proc: ChildProcess, signal: NodeJS.Signals = "SIGTERM"): void {
     if (proc.pid === undefined) {
@@ -167,7 +189,13 @@ export class ServerManager {
         // Negative PID targets the entire process group
         process.kill(-proc.pid, signal)
       } else {
-        proc.kill(signal)
+        // taskkill /T kills the entire process tree; /F forces termination
+        try {
+          execSync(`taskkill /T /F /PID ${proc.pid}`, { stdio: "ignore", timeout: 5000 })
+        } catch {
+          // taskkill may fail if the process is already gone — fall back
+          proc.kill(signal)
+        }
       }
     } catch {
       // Process already gone — ignore

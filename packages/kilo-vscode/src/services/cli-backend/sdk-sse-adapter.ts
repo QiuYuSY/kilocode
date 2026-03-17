@@ -19,12 +19,13 @@ export type SSEStateHandler = (state: "connecting" | "connected" | "disconnected
  * consistency with the original strategy but use a generous 90 s timeout to
  * avoid false-positive reconnections during idle periods.
  *
- * NOTE on event coalescing:
- * The app batches rapid events into 16 ms windows before flushing to the UI.
- * We don't do that here because `postMessage()` to the webview already acts as
- * an implicit async buffer. If profiling shows the webview is overwhelmed by
- * high-frequency events, adding a similar coalescing queue here would be a
- * straightforward improvement.
+ * Event coalescing:
+ * During AI streaming, `message.part.delta` events fire at very high frequency
+ * (every token). Dispatching each one individually via `postMessage()` to the
+ * webview can saturate the main thread, causing 300-500ms+ frame blocks and
+ * triggering VS Code's "application unresponsive" dialog on Windows.
+ * We batch rapid events into 16ms windows (matching the app's strategy in
+ * `packages/app/src/context/global-sdk.tsx`) before flushing to listeners.
  */
 export class SdkSSEAdapter {
   private readonly handlers = new Set<SSEEventHandler>()
@@ -34,11 +35,23 @@ export class SdkSSEAdapter {
   private abortController: AbortController | null = null
   private heartbeatTimer: ReturnType<typeof setTimeout> | null = null
 
+  /** Queued events waiting to be flushed in the current coalescing window. */
+  private eventQueue: Event[] = []
+  private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private static readonly COALESCE_MS = 16
+
   // 15s matches packages/app/src/context/global-sdk.tsx — server sends heartbeats
   // every 10s, so this gives a 5s grace window before forcing a reconnect.
   // Reduced from 90s: with 90s a dead connection could linger for ~1.5 minutes.
   private static readonly HEARTBEAT_TIMEOUT_MS = 15_000
   private static readonly RECONNECT_DELAY_MS = 250
+  /** Maximum reconnect delay when using exponential backoff (10 seconds). */
+  private static readonly MAX_RECONNECT_DELAY_MS = 10_000
+  /** Number of consecutive reconnect failures before escalating to error state. */
+  private static readonly MAX_RECONNECT_FAILURES = 5
+
+  /** Tracks consecutive reconnect failures for exponential backoff. */
+  private failures = 0
 
   constructor(private readonly client: KiloClient) {}
 
@@ -72,6 +85,7 @@ export class SdkSSEAdapter {
     this.abortController?.abort()
     this.abortController = null
     this.clearHeartbeat()
+    this.flushEventQueue()
   }
 
   /**
@@ -82,6 +96,7 @@ export class SdkSSEAdapter {
     this.handlers.clear()
     this.errorHandlers.clear()
     this.stateHandlers.clear()
+    this.eventQueue.length = 0
   }
 
   // ── Pub/sub ────────────────────────────────────────────────────────
@@ -111,6 +126,8 @@ export class SdkSSEAdapter {
 
   /**
    * Main reconnection loop — mirrors the pattern in `global-sdk.tsx`.
+   * Uses exponential backoff (250ms → 500ms → 1s → ... capped at 10s) to
+   * avoid tight failure loops when the server is down.
    */
   private async consumeLoop(signal: AbortSignal): Promise<void> {
     while (!signal.aborted) {
@@ -135,6 +152,7 @@ export class SdkSSEAdapter {
         })
 
         console.log("[Kilo New] SSE: ✅ Stream opened successfully")
+        this.failures = 0
         this.notifyState("connected")
         this.resetHeartbeat(attempt)
 
@@ -148,27 +166,34 @@ export class SdkSSEAdapter {
           // The SDK yields GlobalEvent = { directory, payload: Event }.
           const globalEvent = event as GlobalEvent
           console.log("[Kilo New] SSE: 📨 Event:", globalEvent.payload.type)
-          this.notifyEvent(globalEvent.payload)
+          this.enqueueEvent(globalEvent.payload)
         }
 
         console.log("[Kilo New] SSE: 📭 Stream ended normally")
       } catch (error) {
         if (!signal.aborted) {
-          console.error("[Kilo New] SSE: ❌ Stream error:", error)
+          this.failures++
+          console.error("[Kilo New] SSE: ❌ Stream error (attempt", this.failures, "):", error)
           this.notifyError(error instanceof Error ? error : new Error(String(error)))
         }
       } finally {
         signal.removeEventListener("abort", onAbort)
         this.clearHeartbeat()
+        this.flushEventQueue()
       }
 
       if (signal.aborted) {
         break
       }
 
-      console.log(`[Kilo New] SSE: 🔄 Reconnecting in ${SdkSSEAdapter.RECONNECT_DELAY_MS}ms...`)
+      // Exponential backoff: 250ms, 500ms, 1s, 2s, 4s, 8s, 10s (capped)
+      const delay = Math.min(
+        SdkSSEAdapter.RECONNECT_DELAY_MS * Math.pow(2, this.failures - 1),
+        SdkSSEAdapter.MAX_RECONNECT_DELAY_MS,
+      )
+      console.log(`[Kilo New] SSE: 🔄 Reconnecting in ${delay}ms...`)
       this.notifyState("connecting")
-      await new Promise((resolve) => setTimeout(resolve, SdkSSEAdapter.RECONNECT_DELAY_MS))
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
 
     this.notifyState("disconnected")
@@ -191,6 +216,35 @@ export class SdkSSEAdapter {
     if (this.heartbeatTimer) {
       clearTimeout(this.heartbeatTimer)
       this.heartbeatTimer = null
+    }
+  }
+
+  // ── Event coalescing ────────────────────────────────────────────────
+
+  /**
+   * Enqueue an event for batched dispatch. If this is the first event in
+   * the current window, schedule a flush after COALESCE_MS (16ms).
+   * This reduces webview main-thread pressure during AI streaming where
+   * `message.part.delta` events fire per-token at very high frequency.
+   */
+  private enqueueEvent(event: Event): void {
+    this.eventQueue.push(event)
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => this.flushEventQueue(), SdkSSEAdapter.COALESCE_MS)
+    }
+  }
+
+  /**
+   * Flush all queued events to handlers immediately.
+   */
+  private flushEventQueue(): void {
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+    const batch = this.eventQueue.splice(0)
+    for (const event of batch) {
+      this.notifyEvent(event)
     }
   }
 

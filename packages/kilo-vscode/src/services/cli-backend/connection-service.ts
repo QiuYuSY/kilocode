@@ -28,6 +28,11 @@ export class KiloConnectionService {
   private state: ConnectionState = "disconnected"
   private connectPromise: Promise<void> | null = null
   private healthPollTimer: ReturnType<typeof setInterval> | null = null
+  private unsubscribeServerExit: (() => void) | null = null
+  /** Directory passed to the last successful connect(), used for auto-restart. */
+  private lastWorkspaceDir: string | null = null
+  /** Whether an auto-restart is currently in progress. */
+  private restarting = false
 
   private readonly eventListeners: Set<SSEEventListener> = new Set()
   private readonly stateListeners: Set<StateListener> = new Set()
@@ -180,6 +185,7 @@ export class KiloConnectionService {
    */
   dispose(): void {
     this.stopHealthPoll()
+    this.unsubscribeServerExit?.()
     this.sseClient?.dispose()
     this.serverManager.dispose()
     this.eventListeners.clear()
@@ -247,10 +253,52 @@ export class KiloConnectionService {
     }
   }
 
+  /**
+   * Automatically restart the server after an unexpected process exit.
+   * Transitions to "error" if the restart fails, giving the UI a chance
+   * to show the StartupErrorBanner with a manual "Retry" button.
+   */
+  private async autoRestart(code: number | null): Promise<void> {
+    if (this.restarting) return
+    this.restarting = true
+    const dir = this.lastWorkspaceDir
+    if (!dir) {
+      console.error("[Kilo New] ConnectionService: Cannot auto-restart — no workspace directory recorded")
+      this.setState("error")
+      this.restarting = false
+      return
+    }
+
+    console.warn(`[Kilo New] ConnectionService: 🔄 Server process exited (code ${code}), auto-restarting...`)
+
+    // Clean up the dead connection before restarting
+    this.stopHealthPoll()
+    this.sseClient?.dispose()
+    this.sseClient = null
+    this.client = null
+    this.config = null
+    this.info = null
+    this.connectPromise = null
+    this.setState("connecting")
+
+    try {
+      await this.doConnect(dir)
+      console.log("[Kilo New] ConnectionService: ✅ Auto-restart successful")
+    } catch (error) {
+      console.error("[Kilo New] ConnectionService: ❌ Auto-restart failed:", error)
+      this.setState("error")
+    } finally {
+      this.restarting = false
+    }
+  }
+
   private async doConnect(workspaceDir: string): Promise<void> {
     // If we reconnect, ensure the previous SSE connection is cleaned up first.
     this.stopHealthPoll()
     this.sseClient?.dispose()
+    this.unsubscribeServerExit?.()
+
+    this.lastWorkspaceDir = workspaceDir
 
     const server = await this.serverManager.getServer()
     this.info = { port: server.port }
@@ -314,6 +362,13 @@ export class KiloConnectionService {
         resolveConnected = null
         rejectConnected = null
       }
+    })
+
+    // Subscribe to server process exit so we can auto-restart.
+    // This must be set up before connect() so the exit handler is ready
+    // in case the process dies during SSE setup.
+    this.unsubscribeServerExit = this.serverManager.onExit((code) => {
+      void this.autoRestart(code)
     })
 
     this.sseClient.connect()

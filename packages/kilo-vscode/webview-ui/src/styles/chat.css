@@ -752,8 +752,8 @@
 
 .prompt-input {
   flex: 1;
-  min-height: 54px;
-  max-height: 200px;
+  min-height: 90px;
+  max-height: 300px;
   padding: 8px 8px calc(8px + 1.4em);
   color: transparent;
   caret-color: var(--vscode-input-foreground);

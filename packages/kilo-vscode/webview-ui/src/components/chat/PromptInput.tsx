@@ -148,7 +148,7 @@ export const PromptInput: Component = () => {
         textareaRef.value = draft
         // Reset height then adjust
         textareaRef.style.height = "auto"
-        textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 200)}px`
+        textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 300)}px`
       }
       window.dispatchEvent(new Event("focusPrompt"))
     }),
@@ -342,7 +342,7 @@ export const PromptInput: Component = () => {
   const adjustHeight = () => {
     if (!textareaRef) return
     textareaRef.style.height = "auto"
-    textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 200)}px`
+    textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, 300)}px`
   }
 
   const handlePaste = (e: ClipboardEvent) => {
@@ -600,7 +600,7 @@ export const PromptInput: Component = () => {
             onPaste={handlePaste}
             onScroll={syncHighlightScroll}
             disabled={isDisabled()}
-            rows={1}
+            rows={3}
           />
         </div>
       </div>

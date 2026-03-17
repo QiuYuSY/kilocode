@@ -28,6 +28,21 @@ export namespace State {
     }
   }
 
+  /**
+   * Reset all cache-only entries (those without dispose callbacks) across all
+   * instances. This invalidates derived state like Config, Agent, Provider,
+   * etc. without tearing down side-effectful resources (MCP connections,
+   * sessions, file watchers, etc.).
+   */
+  export function resetCaches() {
+    for (const entries of recordsByKey.values()) {
+      for (const [init, entry] of entries) {
+        if (entry.dispose) continue
+        entries.delete(init)
+      }
+    }
+  }
+
   export async function dispose(key: string) {
     const entries = recordsByKey.get(key)
     if (!entries) return

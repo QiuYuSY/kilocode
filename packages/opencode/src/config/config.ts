@@ -24,6 +24,7 @@ import {
 } from "jsonc-parser"
 // kilocode_change end
 import { Instance } from "../project/instance"
+import { State } from "../project/state" // kilocode_change
 import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
@@ -1588,6 +1589,13 @@ export namespace Config {
     })()
 
     global.reset()
+
+    // kilocode_change start - reset all derived caches (Config.state, Agent.state,
+    // Provider.state, etc.) so they re-read the updated global config on next access.
+    // Only cache entries without dispose callbacks are cleared — side-effectful state
+    // like sessions, MCP connections, and file watchers are preserved.
+    State.resetCaches()
+    // kilocode_change end
 
     GlobalBus.emit("event", {
       directory: "global",

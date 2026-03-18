@@ -1270,6 +1270,14 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     }
   }
 
+  private async fetchAndSendMarketplaceData(): Promise<void> {
+    const workspace = this.getProjectDirectory(this.currentSession?.id)
+    const mp = this.getMarketplace()
+    const skills = await this.fetchCliSkills()
+    const data = await mp.fetchData(workspace, skills)
+    this.postMessage({ type: "marketplaceData", ...data })
+  }
+
   private async fetchCliSkills(): Promise<Array<{ name: string; location: string }> | undefined> {
     if (!this.client) return undefined
     try {
@@ -1345,6 +1353,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
 
     this.cachedAgentsMessage = null
     await this.fetchAndSendAgents()
+    await this.fetchAndSendMarketplaceData()
   }
 
   /**

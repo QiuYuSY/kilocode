@@ -164,15 +164,18 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
   // Seed prompt history from the current session's user messages (e.g., when a
   // session is loaded that has existing conversation). Tracks userMessages()
   // reactively so newly loaded sessions automatically contribute to history.
+  // Strip review-comment markdown prefix so only the user's draft is stored.
+  const REVIEW_PREFIX = /^## Review Comments\n[\s\S]*?\n\n/
   createEffect(() => {
     const msgs = session.userMessages()
     if (msgs.length === 0) return
     const texts = msgs.map((m) => {
       const parts = session.getParts(m.id)
-      return parts
+      const raw = parts
         .filter((p): p is TextPart => p.type === "text")
         .map((p) => p.text)
         .join("")
+      return raw.replace(REVIEW_PREFIX, "")
     })
     history.seed(texts)
   })

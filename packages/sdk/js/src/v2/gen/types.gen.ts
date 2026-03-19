@@ -4488,6 +4488,39 @@ export type KilocodeRemoveAgentResponses = {
 
 export type KilocodeRemoveAgentResponse = KilocodeRemoveAgentResponses[keyof KilocodeRemoveAgentResponses]
 
+export type KilocodeRemoveMcpData = {
+  body?: {
+    name: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/kilocode/mcp/remove"
+}
+
+export type KilocodeRemoveMcpErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type KilocodeRemoveMcpError = KilocodeRemoveMcpErrors[keyof KilocodeRemoveMcpErrors]
+
+export type KilocodeRemoveMcpResponses = {
+  /**
+   * MCP server removed
+   */
+  200: {
+    project: boolean
+    global: boolean
+  }
+}
+
+export type KilocodeRemoveMcpResponse = KilocodeRemoveMcpResponses[keyof KilocodeRemoveMcpResponses]
+
 export type KiloProfileData = {
   body?: never
   path?: never

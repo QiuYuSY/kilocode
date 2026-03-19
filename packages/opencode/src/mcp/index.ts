@@ -942,6 +942,53 @@ export namespace MCP {
   }
 
   /**
+   * Remove an MCP server from the config by setting it to null (delete sentinel).
+   * This removes it from both project and global config scopes.
+   * Returns true if removed from at least one scope.
+   */
+  export async function remove(name: string): Promise<{ project: boolean; global: boolean }> {
+    const result = { project: false, global: false }
+
+    // Try to remove from project config first
+    try {
+      const cfg = await Config.get()
+      if (cfg.mcp?.[name]) {
+        await Config.update({ mcp: { [name]: null as any } })
+        result.project = true
+      }
+    } catch (err) {
+      log.debug("failed to remove MCP from project config", { name, err })
+    }
+
+    // Try to remove from global config
+    try {
+      const globalCfg = await Config.getGlobal()
+      if (globalCfg.mcp?.[name]) {
+        await Config.updateGlobal({ mcp: { [name]: null as any } }, { dispose: false })
+        result.global = true
+      }
+    } catch (err) {
+      log.debug("failed to remove MCP from global config", { name, err })
+    }
+
+    // Disconnect the client if it exists
+    try {
+      const s = await state()
+      const client = s.clients[name]
+      if (client) {
+        await client.close()
+        delete s.clients[name]
+        delete s.status[name]
+      }
+    } catch (err) {
+      log.debug("failed to close MCP client during removal", { name, err })
+    }
+
+    log.info("removed MCP server", { name, project: result.project, global: result.global })
+    return result
+  }
+
+  /**
    * Check if an MCP server supports OAuth (remote servers support OAuth by default unless explicitly disabled).
    */
   export async function supportsOAuth(mcpName: string): Promise<boolean> {

@@ -59,6 +59,8 @@ import type {
   KiloCloudSessionsResponses,
   KilocodeRemoveAgentErrors,
   KilocodeRemoveAgentResponses,
+  KilocodeRemoveMcpErrors,
+  KilocodeRemoveMcpResponses,
   KilocodeRemoveSkillErrors,
   KilocodeRemoveSkillResponses,
   KiloFimErrors,
@@ -3040,6 +3042,43 @@ export class Kilocode extends HeyApiClient {
         },
       },
     )
+  }
+
+  /**
+   * Remove MCP server
+   *
+   * Remove an MCP server from config by name. Removes from both project and global scopes.
+   */
+  public removeMcp<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<KilocodeRemoveMcpResponses, KilocodeRemoveMcpErrors, ThrowOnError>({
+      url: "/kilocode/mcp/remove",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
   }
 }
 

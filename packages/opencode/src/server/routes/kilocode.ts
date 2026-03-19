@@ -6,6 +6,7 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Skill } from "../../skill/skill"
 import { Agent } from "../../agent/agent"
+import { MCP } from "../../mcp"
 import { lazy } from "../../util/lazy"
 import { errors } from "../error"
 
@@ -69,6 +70,36 @@ export const KilocodeRoutes = lazy(() =>
         const { name } = c.req.valid("json")
         await Agent.remove(name)
         return c.json(true)
+      },
+    )
+    .post(
+      "/mcp/remove",
+      describeRoute({
+        summary: "Remove MCP server",
+        description: "Remove an MCP server from config by name. Removes from both project and global scopes.",
+        operationId: "kilocode.removeMcp",
+        responses: {
+          200: {
+            description: "MCP server removed",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ project: z.boolean(), global: z.boolean() })),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          name: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { name } = c.req.valid("json")
+        const result = await MCP.remove(name)
+        return c.json(result)
       },
     ),
 )

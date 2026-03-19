@@ -3,17 +3,9 @@ import * as vscode from "vscode"
 import { z } from "zod"
 import { buildPreviewPath, getPreviewCommand, getPreviewDir, parseImage, trimEntries } from "./image-preview"
 import { isAbsolutePath } from "./path-utils"
-import type {
-  KiloClient,
-  Session,
-  SessionStatus,
-  Event,
-  TextPartInput,
-  FilePartInput,
-  Config,
-} from "@kilocode/sdk/v2/client"
-import { type KiloConnectionService, type KilocodeNotification, ServerStartupError } from "./services/cli-backend"
-import type { EditorContext, CloudSessionData } from "./services/cli-backend/types"
+import type { KiloClient, Session, Event, Config } from "@kilocode/sdk/v2/client"
+import { type KiloConnectionService, ServerStartupError } from "./services/cli-backend"
+import type { EditorContext } from "./services/cli-backend/types"
 import { FileIgnoreController } from "./services/autocomplete/shims/FileIgnoreController"
 import { handleChatCompletionRequest } from "./services/autocomplete/chat-autocomplete/handleChatCompletionRequest"
 import { handleChatCompletionAccepted } from "./services/autocomplete/chat-autocomplete/handleChatCompletionAccepted"
@@ -30,11 +22,9 @@ import {
   mapSSEEventToWebviewMessage,
   getErrorMessage,
   isEventFromForeignProject,
-  mapCloudSessionMessageToWebviewMessage,
-  loadSessions as loadSessionsUtil,
-  flushPendingSessionRefresh as flushPendingSessionRefreshUtil,
-  type SessionRefreshContext,
 } from "./kilo-provider-utils"
+import * as SessionHandler from "./session-handler"
+import type { SessionContext } from "./session-handler"
 import { MarketplaceService } from "./services/marketplace"
 import { resolveProjectDirectory } from "./project-directory"
 
@@ -140,6 +130,45 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     } catch {
       return null
     }
+  }
+
+  /**
+   * Build the SessionContext object that session-handler functions operate on.
+   * Exposes only the narrow interface the handler needs, keeping the coupling explicit.
+   */
+  private get sessionCtx(): SessionContext {
+    return {
+      currentSession: this.currentSession,
+      trackedSessionIds: this.trackedSessionIds,
+      syncedChildSessions: this.syncedChildSessions,
+      sessionDirectories: this.sessionDirectories,
+      pendingSessionRefresh: this.pendingSessionRefresh,
+      connectionState: this.connectionState,
+      projectID: this.projectID,
+      loadMessagesAbort: this.loadMessagesAbort,
+      client: this.client,
+      connectionService: this.connectionService,
+      postMessage: (msg: unknown) => this.postMessage(msg),
+      getWorkspaceDirectory: (sid?: string) => this.getWorkspaceDirectory(sid),
+      getProjectDirectory: (sid?: string) => this.getProjectDirectory(sid),
+      slimParts: <T>(parts: T[]) => this.slimParts(parts),
+      slimPart: <T>(part: T) => this.slimPart(part),
+      gatherEditorContext: () => this.gatherEditorContext(),
+    }
+  }
+
+  /**
+   * Run a session-handler function and sync any mutable state changes back from the context.
+   */
+  private async runSession<T>(fn: (ctx: SessionContext) => Promise<T>): Promise<T> {
+    const ctx = this.sessionCtx
+    const result = await fn(ctx)
+    // Sync back mutable fields that the handler may have modified
+    this.currentSession = ctx.currentSession
+    this.pendingSessionRefresh = ctx.pendingSessionRefresh
+    this.projectID = ctx.projectID
+    this.loadMessagesAbort = ctx.loadMessagesAbort
+    return result
   }
 
   // Edit tool parts carry full file contents in metadata.filediff.before/after.
@@ -930,285 +959,32 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     return sessionToWebview(session)
   }
 
-  /**
-   * Handle creating a new session.
-   */
   private async handleCreateSession(): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "error",
-        message: "Not connected to CLI backend",
-      })
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory()
-      const { data: session } = await this.client.session.create({ directory: workspaceDir }, { throwOnError: true })
-      this.currentSession = session
-      this.trackedSessionIds.add(session.id)
-
-      // Notify webview of the new session
-      this.postMessage({
-        type: "sessionCreated",
-        session: this.sessionToWebview(this.currentSession!),
-      })
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to create session:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to create session",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.createSession(ctx))
   }
 
-  /**
-   * Handle loading messages for a session.
-   */
   private async handleLoadMessages(sessionID: string): Promise<void> {
-    // Track the session so we receive its SSE events
-    this.trackedSessionIds.add(sessionID)
-
-    if (!this.client) {
-      this.postMessage({
-        type: "error",
-        message: "Not connected to CLI backend",
-        sessionID,
-      })
-      return
-    }
-
-    // Abort any previous in-flight loadMessages request so the backend
-    // isn't overwhelmed when the user switches sessions rapidly.
-    this.loadMessagesAbort?.abort()
-    const abort = new AbortController()
-    this.loadMessagesAbort = abort
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(sessionID)
-      const { data: messagesData } = await this.client.session.messages(
-        { sessionID, directory: workspaceDir },
-        { throwOnError: true, signal: abort.signal },
-      )
-
-      // If this request was aborted while awaiting, skip posting stale results
-      if (abort.signal.aborted) return
-
-      // Update currentSession so fallback logic in handleSendMessage/handleAbort
-      // references the correct session after switching.  loadMessages is the
-      // canonical "user switched to this session" signal, so always update —
-      // the old guard `this.currentSession.id === sessionID` prevented updates
-      // when switching between different sessions.
-      // Non-blocking: don't let a failure here prevent messages from loading.
-      // 404s are expected for cross-worktree sessions — use silent to suppress HTTP error logs.
-      this.client.session
-        .get({ sessionID, directory: workspaceDir })
-        .then((result) => {
-          if (result.data && !abort.signal.aborted) {
-            this.currentSession = result.data
-          }
-        })
-        .catch((err: unknown) => console.warn("[Kilo New] KiloProvider: getSession failed (non-critical):", err))
-
-      this.postMessage({
-        type: "workspaceDirectoryChanged",
-        directory: this.getWorkspaceDirectory(sessionID),
-      })
-
-      // Fetch current session status so the webview has the correct busy/idle
-      // state after switching tabs (SSE events may have been missed).
-      this.client.session
-        .status({ directory: workspaceDir })
-        .then((result) => {
-          if (!result.data) return
-          for (const [sid, info] of Object.entries(result.data) as [string, SessionStatus][]) {
-            if (!this.trackedSessionIds.has(sid)) continue
-            this.postMessage({
-              type: "sessionStatus",
-              sessionID: sid,
-              status: info.type,
-              ...(info.type === "retry" ? { attempt: info.attempt, message: info.message, next: info.next } : {}),
-            })
-          }
-        })
-        .catch((err: unknown) => console.error("[Kilo New] KiloProvider: Failed to fetch session statuses:", err))
-
-      const messages = messagesData.map((m) => ({
-        ...m.info,
-        parts: this.slimParts(m.parts),
-        createdAt: new Date(m.info.time.created).toISOString(),
-      }))
-
-      for (const message of messages) {
-        this.connectionService.recordMessageSessionId(message.id, message.sessionID)
-      }
-
-      this.postMessage({
-        type: "messagesLoaded",
-        sessionID,
-        messages,
-      })
-
-      // Recover any permission.asked events that were missed while the webview
-      // was loading or during an SSE reconnection (fire-and-forget).
-      void this.fetchAndSendPendingPermissions()
-    } catch (error) {
-      // Silently ignore aborted requests — the user switched to a different session
-      if (abort.signal.aborted) return
-      console.error("[Kilo New] KiloProvider: Failed to load messages:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to load messages",
-        sessionID,
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.loadMessages(ctx, sessionID))
   }
 
-  /**
-   * Handle syncing a child session (e.g. spawned by the task tool).
-   * Tracks the session for SSE events and fetches its messages.
-   */
   private async handleSyncSession(sessionID: string): Promise<void> {
-    if (!this.client) return
-    if (this.syncedChildSessions.has(sessionID)) return
-
-    this.syncedChildSessions.add(sessionID)
-    this.trackedSessionIds.add(sessionID)
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(sessionID)
-      const { data: messagesData } = await this.client.session.messages(
-        { sessionID, directory: workspaceDir },
-        { throwOnError: true },
-      )
-
-      const messages = messagesData.map((m) => ({
-        ...m.info,
-        parts: this.slimParts(m.parts),
-        createdAt: new Date(m.info.time.created).toISOString(),
-      }))
-
-      for (const message of messages) {
-        this.connectionService.recordMessageSessionId(message.id, message.sessionID)
-      }
-
-      this.postMessage({
-        type: "messagesLoaded",
-        sessionID,
-        messages,
-      })
-    } catch (err) {
-      this.syncedChildSessions.delete(sessionID)
-      console.error("[Kilo New] KiloProvider: Failed to sync child session:", err)
-    }
+    return this.runSession((ctx) => SessionHandler.syncSession(ctx, sessionID))
   }
 
-  /**
-   * Build the context object used by the extracted session-refresh helpers.
-   */
-  private get sessionRefreshContext(): SessionRefreshContext {
-    const client = this.client
-    return {
-      pendingSessionRefresh: this.pendingSessionRefresh,
-      connectionState: this.connectionState,
-      listSessions: client
-        ? (dir: string) =>
-            client.session.list({ directory: dir, roots: true }, { throwOnError: true }).then(({ data }) => data)
-        : null,
-      sessionDirectories: this.sessionDirectories,
-      workspaceDirectory: this.getWorkspaceDirectory(),
-      postMessage: (msg: unknown) => this.postMessage(msg),
-    }
-  }
-
-  /**
-   * Retry a deferred sessions refresh once the client is ready.
-   */
   private async flushPendingSessionRefresh(reason: string): Promise<void> {
-    if (!this.pendingSessionRefresh) return
-    console.log("[Kilo New] KiloProvider: 🔄 Flushing deferred sessions refresh", { reason })
-    const ctx = this.sessionRefreshContext
-    try {
-      const resolved = await flushPendingSessionRefreshUtil(ctx)
-      if (resolved) this.projectID = resolved
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to flush session refresh:", error)
-    }
-    this.pendingSessionRefresh = ctx.pendingSessionRefresh
+    return this.runSession((ctx) => SessionHandler.flushPendingRefresh(ctx, reason))
   }
 
-  /**
-   * Handle loading all sessions.
-   */
   private async handleLoadSessions(): Promise<void> {
-    const ctx = this.sessionRefreshContext
-    try {
-      const resolved = await loadSessionsUtil(ctx)
-      if (resolved) this.projectID = resolved
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to load sessions:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to load sessions",
-      })
-    }
-    this.pendingSessionRefresh = ctx.pendingSessionRefresh
+    return this.runSession((ctx) => SessionHandler.loadAllSessions(ctx))
   }
 
-  /**
-   * Handle deleting a session.
-   */
   private async handleDeleteSession(sessionID: string): Promise<void> {
-    if (!this.client) {
-      this.postMessage({ type: "error", message: "Not connected to CLI backend" })
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(sessionID)
-      await this.client.session.delete({ sessionID, directory: workspaceDir }, { throwOnError: true })
-      this.trackedSessionIds.delete(sessionID)
-      this.syncedChildSessions.delete(sessionID)
-      this.sessionDirectories.delete(sessionID)
-      if (this.currentSession?.id === sessionID) {
-        this.currentSession = null
-      }
-      this.postMessage({ type: "sessionDeleted", sessionID })
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to delete session:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to delete session",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.deleteSession(ctx, sessionID))
   }
 
-  /**
-   * Handle renaming a session.
-   */
   private async handleRenameSession(sessionID: string, title: string): Promise<void> {
-    if (!this.client) {
-      this.postMessage({ type: "error", message: "Not connected to CLI backend" })
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(sessionID)
-      const { data: updated } = await this.client.session.update(
-        { sessionID, directory: workspaceDir, title },
-        { throwOnError: true },
-      )
-      if (this.currentSession?.id === sessionID) {
-        this.currentSession = updated
-      }
-      this.postMessage({ type: "sessionUpdated", session: this.sessionToWebview(updated) })
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to rename session:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to rename session",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.renameSession(ctx, sessionID, title))
   }
 
   /**
@@ -1574,93 +1350,18 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     }
   }
 
-  /**
-   * Handle cloud sessions request from webview.
-   * Fetches sessions from the Kilo cloud API and sends them back.
-   */
   private async handleRequestCloudSessions(message: {
     cursor?: string
     limit?: number
     gitUrl?: string
   }): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "error",
-        message: "Not connected to CLI backend",
-      })
-      return
-    }
-
-    try {
-      const result = await this.client.kilo.cloudSessions({
-        cursor: message.cursor,
-        limit: message.limit,
-        gitUrl: message.gitUrl,
-      })
-
-      this.postMessage({
-        type: "cloudSessionsLoaded",
-        sessions: result.data?.cliSessions ?? [],
-        nextCursor: result.data?.nextCursor ?? null,
-      })
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to fetch cloud sessions:", error)
-      this.postMessage({
-        type: "error",
-        message: error instanceof Error ? error.message : "Failed to fetch cloud sessions",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.requestCloudSessions(ctx, message))
   }
 
-  /**
-   * Fetch full cloud session data for read-only preview.
-   * Transforms the export data into webview message format and sends it back.
-   */
   private async handleRequestCloudSessionData(sessionId: string): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "cloudSessionImportFailed",
-        cloudSessionId: sessionId,
-        error: "Not connected to CLI backend",
-      })
-      return
-    }
-
-    try {
-      const result = await this.client.kilo.cloud.session.get({ id: sessionId })
-      const data = result.data as CloudSessionData | undefined
-      if (!data) {
-        this.postMessage({
-          type: "cloudSessionImportFailed",
-          cloudSessionId: sessionId,
-          error: "Failed to fetch cloud session",
-        })
-        return
-      }
-
-      const messages = (data.messages ?? []).filter((m) => m.info).map(mapCloudSessionMessageToWebviewMessage)
-
-      this.postMessage({
-        type: "cloudSessionDataLoaded",
-        cloudSessionId: sessionId,
-        title: data.info.title ?? "Untitled",
-        messages,
-      })
-    } catch (err) {
-      console.error("[Kilo New] Failed to load cloud session data:", err)
-      this.postMessage({
-        type: "cloudSessionImportFailed",
-        cloudSessionId: sessionId,
-        error: err instanceof Error ? err.message : "Failed to load cloud session",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.requestCloudSessionData(ctx, sessionId))
   }
 
-  /**
-   * Import a cloud session to local storage, then send a new message on it.
-   * This is the "clone on first message" flow — the cloud session becomes a
-   * local session only when the user decides to continue it.
-   */
   private async handleImportAndSend(
     cloudSessionId: string,
     text: string,
@@ -1673,111 +1374,21 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     command?: string,
     commandArgs?: string,
   ): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "cloudSessionImportFailed",
+    return this.runSession((ctx) =>
+      SessionHandler.importAndSend(
+        ctx,
         cloudSessionId,
-        error: "Not connected to CLI backend",
-      })
-      return
-    }
-
-    const workspaceDir = this.getWorkspaceDirectory()
-
-    // Step 1: Import the cloud session with fresh IDs
-    let session: Session | undefined
-    try {
-      const importResult = await this.client.kilo.cloud.session.import({
-        sessionId: cloudSessionId,
-        directory: workspaceDir,
-      })
-      session = importResult.data as Session | undefined
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: ❌ Cloud session import failed:", error)
-      this.postMessage({
-        type: "cloudSessionImportFailed",
-        cloudSessionId,
-        error: getErrorMessage(error) || "Failed to import session from cloud",
-      })
-      return
-    }
-    if (!session) {
-      this.postMessage({
-        type: "cloudSessionImportFailed",
-        cloudSessionId,
-        error: "Failed to import session from cloud",
-      })
-      return
-    }
-
-    // Track the new local session
-    this.currentSession = session
-    this.trackedSessionIds.add(session.id)
-
-    // Notify webview of the import success
-    this.postMessage({
-      type: "cloudSessionImported",
-      cloudSessionId,
-      session: this.sessionToWebview(session),
-    })
-
-    // Step 2: Send the user's message/command on the new local session
-    try {
-      if (messageID) {
-        this.connectionService.recordMessageSessionId(messageID, session.id)
-      }
-
-      if (command) {
-        const fileParts = files?.map((f) => ({ type: "file" as const, mime: f.mime, url: f.url }))
-        await this.client.session.command(
-          {
-            sessionID: session.id,
-            directory: workspaceDir,
-            command,
-            arguments: commandArgs ?? "",
-            messageID,
-            model: providerID && modelID ? `${providerID}/${modelID}` : undefined,
-            agent,
-            variant,
-            parts: fileParts,
-          },
-          { throwOnError: true },
-        )
-      } else {
-        const parts: Array<TextPartInput | FilePartInput> = []
-        if (files) {
-          for (const f of files) {
-            parts.push({ type: "file", mime: f.mime, url: f.url })
-          }
-        }
-        parts.push({ type: "text", text })
-
-        const editorContext = await this.gatherEditorContext()
-        await this.client.session.promptAsync(
-          {
-            sessionID: session.id,
-            directory: workspaceDir,
-            messageID,
-            parts,
-            model: providerID && modelID ? { providerID, modelID } : undefined,
-            agent,
-            variant,
-            editorContext,
-          },
-          { throwOnError: true },
-        )
-      }
-    } catch (err) {
-      console.error("[Kilo New] Failed to send message after cloud import:", err)
-      this.postMessage({
-        type: "sendMessageFailed",
-        error: err instanceof Error ? err.message : "Failed to send message after import",
         text,
-        sessionID: session.id,
         messageID,
+        providerID,
+        modelID,
+        agent,
+        variant,
         files,
-      })
-    }
+        command,
+        commandArgs,
+      ),
+    )
   }
 
   /**
@@ -1877,37 +1488,6 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     }
   }
 
-  /**
-   * Handle sending a message from the webview.
-   * Uses promptAsync (fire-and-forget) — the server queues concurrent prompts
-   * internally, so the client doesn't need to block on busy sessions.
-   */
-  /**
-   * Ensure a session exists, creating one if needed. Returns the resolved
-   * session ID and workspace directory, or undefined when the client is
-   * disconnected.
-   */
-  private async resolveSession(sessionID?: string): Promise<{ sid: string; dir: string } | undefined> {
-    if (!this.client) return undefined
-
-    const dir = this.getWorkspaceDirectory(sessionID || this.currentSession?.id)
-
-    if (!sessionID && !this.currentSession) {
-      const { data: session } = await this.client.session.create({ directory: dir }, { throwOnError: true })
-      this.currentSession = session
-      this.trackedSessionIds.add(session.id)
-      this.postMessage({
-        type: "sessionCreated",
-        session: this.sessionToWebview(session),
-      })
-    }
-
-    const sid = sessionID || this.currentSession?.id
-    if (!sid) throw new Error("No session available")
-    this.trackedSessionIds.add(sid)
-    return { sid, dir }
-  }
-
   private async handleSendMessage(
     text: string,
     messageID?: string,
@@ -1918,60 +1498,9 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     variant?: string,
     files?: Array<{ mime: string; url: string }>,
   ): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "sendMessageFailed",
-        error: "Not connected to CLI backend",
-        text,
-        sessionID,
-        messageID,
-        files,
-      })
-      return
-    }
-
-    let resolved: { sid: string; dir: string } | undefined
-    try {
-      resolved = await this.resolveSession(sessionID)
-
-      const parts: Array<TextPartInput | FilePartInput> = []
-      if (files) {
-        for (const f of files) {
-          parts.push({ type: "file", mime: f.mime, url: f.url })
-        }
-      }
-      parts.push({ type: "text", text })
-
-      const editorContext = await this.gatherEditorContext()
-
-      if (messageID) {
-        this.connectionService.recordMessageSessionId(messageID, resolved!.sid)
-      }
-
-      await this.client.session.promptAsync(
-        {
-          sessionID: resolved!.sid,
-          directory: resolved!.dir,
-          messageID,
-          parts,
-          model: providerID && modelID ? { providerID, modelID } : undefined,
-          agent,
-          variant,
-          editorContext,
-        },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to send message:", error)
-      this.postMessage({
-        type: "sendMessageFailed",
-        error: getErrorMessage(error) || "Failed to send message",
-        text,
-        sessionID: resolved?.sid ?? sessionID,
-        messageID,
-        files,
-      })
-    }
+    return this.runSession((ctx) =>
+      SessionHandler.sendMessage(ctx, text, messageID, sessionID, providerID, modelID, agent, variant, files),
+    )
   }
 
   private async handleSendCommand(
@@ -1985,146 +1514,27 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     variant?: string,
     files?: Array<{ mime: string; url: string }>,
   ): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "sendMessageFailed",
-        error: "Not connected to CLI backend",
-        text: `/${command} ${args}`.trim(),
-        sessionID,
-        messageID,
-        files,
-      })
-      return
-    }
-
-    let resolved: { sid: string; dir: string } | undefined
-    try {
-      resolved = await this.resolveSession(sessionID)
-
-      if (messageID) {
-        this.connectionService.recordMessageSessionId(messageID, resolved!.sid)
-      }
-
-      const parts = files?.map((f) => ({ type: "file" as const, mime: f.mime, url: f.url }))
-
-      await this.client.session.command(
-        {
-          sessionID: resolved!.sid,
-          directory: resolved!.dir,
-          command,
-          arguments: args,
-          messageID,
-          model: providerID && modelID ? `${providerID}/${modelID}` : undefined,
-          agent,
-          variant,
-          parts,
-        },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to send command:", error)
-      this.postMessage({
-        type: "sendMessageFailed",
-        error: getErrorMessage(error) || "Failed to send command",
-        text: `/${command} ${args}`.trim(),
-        sessionID: resolved?.sid ?? sessionID,
-        messageID,
-        files,
-      })
-    }
+    return this.runSession((ctx) =>
+      SessionHandler.sendCommand(ctx, command, args, messageID, sessionID, providerID, modelID, agent, variant, files),
+    )
   }
 
-  /**
-   * Handle abort request from the webview.
-   */
   private async handleAbort(sessionID?: string): Promise<void> {
-    if (!this.client) {
-      return
-    }
-
-    const targetSessionID = sessionID || this.currentSession?.id
-    if (!targetSessionID) {
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(targetSessionID)
-      await this.client.session.abort({ sessionID: targetSessionID, directory: workspaceDir }, { throwOnError: true })
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to abort session:", error)
-    }
+    return this.runSession((ctx) => SessionHandler.abort(ctx, sessionID))
   }
 
   private async handleRevertSession(sessionID: string, messageID: string): Promise<void> {
-    if (!this.client) return
-    const dir = this.getWorkspaceDirectory(sessionID)
-    const { data, error } = await this.client.session.revert({ sessionID, messageID, directory: dir })
-    if (error) {
-      console.error("[Kilo New] KiloProvider: Failed to revert session:", error)
-      this.postMessage({ type: "error", message: "Failed to revert session", sessionID })
-      return
-    }
-    if (data) this.postMessage({ type: "sessionUpdated", session: sessionToWebview(data) })
+    return this.runSession((ctx) => SessionHandler.revertSession(ctx, sessionID, messageID))
   }
 
   private async handleUnrevertSession(sessionID: string): Promise<void> {
-    if (!this.client) return
-    const dir = this.getWorkspaceDirectory(sessionID)
-    const { data, error } = await this.client.session.unrevert({ sessionID, directory: dir })
-    if (error) {
-      console.error("[Kilo New] KiloProvider: Failed to unrevert session:", error)
-      this.postMessage({ type: "error", message: "Failed to redo session", sessionID })
-      return
-    }
-    if (data) this.postMessage({ type: "sessionUpdated", session: sessionToWebview(data) })
+    return this.runSession((ctx) => SessionHandler.unrevertSession(ctx, sessionID))
   }
 
-  /**
-   * Handle compact (context summarization) request from the webview.
-   */
   private async handleCompact(sessionID?: string, providerID?: string, modelID?: string): Promise<void> {
-    if (!this.client) {
-      this.postMessage({
-        type: "error",
-        message: "Not connected to CLI backend",
-      })
-      return
-    }
-
-    const target = sessionID || this.currentSession?.id
-    if (!target) {
-      console.error("[Kilo New] KiloProvider: No sessionID for compact")
-      return
-    }
-
-    if (!providerID || !modelID) {
-      console.error("[Kilo New] KiloProvider: No model selected for compact")
-      this.postMessage({
-        type: "error",
-        message: "No model selected. Connect a provider to compact this session.",
-      })
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(target)
-      await this.client.session.summarize(
-        { sessionID: target, directory: workspaceDir, providerID, modelID },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to compact session:", error)
-      this.postMessage({
-        type: "error",
-        message: getErrorMessage(error) || "Failed to compact session",
-      })
-    }
+    return this.runSession((ctx) => SessionHandler.compact(ctx, sessionID, providerID, modelID))
   }
 
-  /**
-   * Handle permission response from the webview.
-   * Calls saveAlwaysRules first (if any), then reply — sequentially to avoid races.
-   */
   private async handlePermissionResponse(
     permissionId: string,
     sessionID: string,
@@ -2132,115 +1542,21 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     approvedAlways: string[],
     deniedAlways: string[],
   ): Promise<void> {
-    if (!this.client) {
-      this.postMessage({ type: "permissionError", permissionID: permissionId })
-      return
-    }
-
-    const targetSessionID = sessionID || this.currentSession?.id
-    if (!targetSessionID) {
-      console.error("[Kilo New] KiloProvider: No sessionID for permission response")
-      this.postMessage({ type: "permissionError", permissionID: permissionId })
-      return
-    }
-
-    try {
-      const workspaceDir = this.getWorkspaceDirectory(targetSessionID)
-
-      // Save per-pattern rules before replying (reply deletes the pending request)
-      if (approvedAlways.length > 0 || deniedAlways.length > 0) {
-        await this.client.permission.saveAlwaysRules(
-          {
-            requestID: permissionId,
-            directory: workspaceDir,
-            approvedAlways,
-            deniedAlways,
-          },
-          { throwOnError: true },
-        )
-      }
-
-      await this.client.permission.reply(
-        { requestID: permissionId, reply: response, directory: workspaceDir },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to respond to permission:", error)
-      this.postMessage({ type: "permissionError", permissionID: permissionId })
-    }
+    return this.runSession((ctx) =>
+      SessionHandler.handlePermission(ctx, permissionId, sessionID, response, approvedAlways, deniedAlways),
+    )
   }
 
-  /**
-   * Fetch all pending permissions from the backend and forward any that belong
-   * to tracked sessions to the webview. Called after SSE reconnects and after
-   * loading messages for a session so that missed permission.asked events are
-   * recovered instead of leaving the server blocked indefinitely.
-   */
   private async fetchAndSendPendingPermissions(): Promise<void> {
-    if (!this.client) return
-    try {
-      const workspaceDir = this.getWorkspaceDirectory()
-      const { data } = await this.client.permission.list({ directory: workspaceDir })
-      if (!data) return
-      for (const perm of data) {
-        if (!this.trackedSessionIds.has(perm.sessionID)) continue
-        this.postMessage({
-          type: "permissionRequest",
-          permission: {
-            id: perm.id,
-            sessionID: perm.sessionID,
-            toolName: perm.permission,
-            patterns: perm.patterns,
-            always: perm.always,
-            args: perm.metadata,
-            message: `Permission required: ${perm.permission}`,
-            tool: perm.tool,
-          },
-        })
-      }
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to fetch pending permissions:", error)
-    }
+    return this.runSession((ctx) => SessionHandler.fetchAndSendPendingPermissions(ctx))
   }
 
-  /**
-   * Handle question reply from the webview.
-   */
   private async handleQuestionReply(requestID: string, answers: string[][]): Promise<void> {
-    if (!this.client) {
-      this.postMessage({ type: "questionError", requestID })
-      return
-    }
-
-    try {
-      await this.client.question.reply(
-        { requestID, answers, directory: this.getWorkspaceDirectory(this.currentSession?.id) },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to reply to question:", error)
-      this.postMessage({ type: "questionError", requestID })
-    }
+    return this.runSession((ctx) => SessionHandler.questionReply(ctx, requestID, answers))
   }
 
-  /**
-   * Handle question reject (dismiss) from the webview.
-   */
   private async handleQuestionReject(requestID: string): Promise<void> {
-    if (!this.client) {
-      this.postMessage({ type: "questionError", requestID })
-      return
-    }
-
-    try {
-      await this.client.question.reject(
-        { requestID, directory: this.getWorkspaceDirectory(this.currentSession?.id) },
-        { throwOnError: true },
-      )
-    } catch (error) {
-      console.error("[Kilo New] KiloProvider: Failed to reject question:", error)
-      this.postMessage({ type: "questionError", requestID })
-    }
+    return this.runSession((ctx) => SessionHandler.questionReject(ctx, requestID))
   }
 
   /**

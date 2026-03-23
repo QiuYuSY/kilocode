@@ -264,45 +264,38 @@ const AgentBehaviourTab: Component = () => {
         {language.t("settings.agentBehaviour.availableAgents")}
       </div>
       <Card style={{ "margin-bottom": "12px" }}>
-        <div
-          style={{
-            "max-height": "320px",
-            "overflow-y": "auto",
-          }}
-        >
-          <For each={agentNames()}>
-            {(name, index) => {
-              const agent = () => session.agents().find((a) => a.name === name)
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    "align-items": "center",
-                    "justify-content": "space-between",
-                    padding: "8px 4px",
-                    "border-bottom": index() < agentNames().length - 1 ? "1px solid var(--border-weak-base)" : "none",
-                    "border-radius": "4px",
-                  }}
-                >
-                  <div>
-                    <div style={{ "font-weight": "500", "font-size": "13px" }}>{name}</div>
-                    <Show when={agent()?.description}>
-                      <div
-                        style={{
-                          "font-size": "11px",
-                          color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
-                          "margin-top": "2px",
-                        }}
-                      >
-                        {agent()!.description}
-                      </div>
-                    </Show>
-                  </div>
+        <For each={agentNames()}>
+          {(name, index) => {
+            const agent = () => session.agents().find((a) => a.name === name)
+            return (
+              <div
+                style={{
+                  display: "flex",
+                  "align-items": "center",
+                  "justify-content": "space-between",
+                  padding: "8px 4px",
+                  "border-bottom": index() < agentNames().length - 1 ? "1px solid var(--border-weak-base)" : "none",
+                  "border-radius": "4px",
+                }}
+              >
+                <div>
+                  <div style={{ "font-weight": "500", "font-size": "13px" }}>{name}</div>
+                  <Show when={agent()?.description}>
+                    <div
+                      style={{
+                        "font-size": "11px",
+                        color: "var(--text-weak-base, var(--vscode-descriptionForeground))",
+                        "margin-top": "2px",
+                      }}
+                    >
+                      {agent()!.description}
+                    </div>
+                  </Show>
                 </div>
-              )
-            }}
-          </For>
-        </div>
+              </div>
+            )
+          }}
+        </For>
       </Card>
 
       <Show when={selectedAgent()}>

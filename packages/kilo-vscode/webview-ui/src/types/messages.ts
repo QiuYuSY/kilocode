@@ -1506,6 +1506,7 @@ export interface RequestChatCompletionMessage {
   type: "requestChatCompletion"
   text: string
   requestId: string
+  history?: string[]
 }
 
 export interface RequestFileSearchMessage {

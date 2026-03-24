@@ -169,6 +169,9 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("kilo-code.new.profileButtonClicked", () => {
       settingsEditorProvider.openPanel("profile")
     }),
+    vscode.commands.registerCommand("kilo-code.new.helpButtonClicked", () => {
+      provider.postMessage({ type: "action", action: "openFeedback" })
+    }),
     vscode.commands.registerCommand("kilo-code.new.settingsButtonClicked", (tab?: string) => {
       settingsEditorProvider.openPanel("settings", tab)
     }),

@@ -59,6 +59,11 @@ export const MessageList: Component<MessageListProps> = (props) => {
   window.addEventListener("resumeAutoScroll", onResumeAutoScroll)
   onCleanup(() => window.removeEventListener("resumeAutoScroll", onResumeAutoScroll))
 
+  // Open feedback dialog from toolbar help button
+  const onOpenFeedback = () => dialog.show(() => <FeedbackDialog />)
+  window.addEventListener("openFeedback", onOpenFeedback)
+  onCleanup(() => window.removeEventListener("openFeedback", onOpenFeedback))
+
   let loaded = false
   createEffect(() => {
     if (!loaded && server.isConnected() && session.sessions().length === 0) {

@@ -175,6 +175,9 @@ const AppContent: Component = () => {
       case "settingsButtonClicked":
         setCurrentView("settings")
         break
+      case "openFeedback":
+        window.dispatchEvent(new CustomEvent("openFeedback"))
+        break
       case "cycleAgentMode":
         if (document.hasFocus()) cycleAgent(1)
         break

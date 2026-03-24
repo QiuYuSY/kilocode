@@ -1460,16 +1460,20 @@ When you have finalized your plan and are confident it is ready for implementati
       // kilocode_change end
       // kilocode_change start - handle code-switch from any planning agent
       if (wasPlanningAgent && input.agent.name === "code") {
-        // kilocode_change end
+        const plan = Session.plan(input.session)
+        const exists = await Filesystem.exists(plan)
         userMessage.parts.push({
           id: Identifier.ascending("part"),
           messageID: userMessage.info.id,
           sessionID: userMessage.info.sessionID,
           type: "text",
-          text: CODE_SWITCH,
+          text: exists
+            ? CODE_SWITCH + "\n\n" + `A plan file exists at ${plan}. You should execute on the plan defined within it.`
+            : CODE_SWITCH,
           synthetic: true,
         })
       }
+      // kilocode_change end
       return input.messages
     }
 

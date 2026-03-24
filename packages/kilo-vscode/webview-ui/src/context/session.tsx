@@ -664,6 +664,23 @@ export const SessionProvider: ParentComponent = (props) => {
     if (message.parts && message.parts.length > 0) {
       setStore("parts", message.id, message.parts)
     }
+
+    // Sync the agent selector when a server-injected user message arrives
+    // with a different agent (e.g. PlanFollowup injects agent:"code" after
+    // plan_exit). Without this, the UI stays on the previous agent and the
+    // user's next manual message would re-enter the old agent's permissions.
+    if (
+      !wasOptimistic &&
+      message.role === "user" &&
+      message.agent &&
+      message.sessionID === currentSessionID() &&
+      agents().some((a) => a.name === message.agent && a.mode !== "subagent")
+    ) {
+      const current = store.agentSelections[message.sessionID] ?? defaultAgent()
+      if (current !== message.agent) {
+        setStore("agentSelections", message.sessionID, message.agent)
+      }
+    }
   }
 
   function handlePartUpdated(

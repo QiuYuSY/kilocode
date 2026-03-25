@@ -398,9 +398,9 @@ const AgentBehaviourTab: Component = () => {
   }
 
   const updateMcp = (name: string, partial: Record<string, unknown>) => {
-    const existing = config().mcp ?? {}
-    const current = existing[name] ?? {}
-    updateConfig({ mcp: { ...existing, [name]: { ...current, ...partial } } })
+    // Only send the targeted server entry to avoid writing back inherited/merged servers
+    const current = config().mcp?.[name] ?? {}
+    updateConfig({ mcp: { [name]: { ...current, ...partial } } })
   }
 
   const renderMcpSubtab = () => {

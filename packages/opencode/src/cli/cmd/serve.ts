@@ -12,11 +12,16 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless kilo server", // kilocode_change
   handler: async (args) => {
-    if (!Flag.KILO_SERVER_PASSWORD || Flag.KILO_SERVER_PASSWORD.length < 12) {
-      console.error(
-        "Error: KILO_SERVER_PASSWORD environment variable must be set and must be at least 12 characters long.",
-      )
-      process.exit(1)
+    // kilocode_change start - hard password validation gate commented out, keeping as soft warning for now
+    // if (!Flag.KILO_SERVER_PASSWORD || Flag.KILO_SERVER_PASSWORD.length < 12) {
+    //   console.error(
+    //     "Error: KILO_SERVER_PASSWORD environment variable must be set and must be at least 12 characters long.",
+    //   )
+    //   process.exit(1)
+    // }
+    // kilocode_change end
+    if (!Flag.KILO_SERVER_PASSWORD) {
+      console.log("Warning: KILO_SERVER_PASSWORD is not set; server is unsecured.")
     }
     const opts = await resolveNetworkOptions(args)
     const server = Server.listen(opts)

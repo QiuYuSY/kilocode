@@ -1096,6 +1096,12 @@ export const dict = {
     "Geçersiz JSON dosyası. Lütfen geçerli bir ajan tanım dosyası seçin.",
   "settings.agentBehaviour.importMode.tooLarge": "Dosya çok büyük. Ajan tanımları 1 MB'den küçük olmalıdır.",
   "settings.agentBehaviour.exportMode": "Ajan tanımını dışa aktar",
+  "settings.agentBehaviour.editMode.whenToUse": "Ne Zaman Kullanılır",
+  "settings.agentBehaviour.editMode.whenToUse.help":
+    "Orkestratöre görevlerin bu ajana ne zaman devredileceğini söyler.",
+  "settings.agentBehaviour.editMode.whenToUse.placeholder":
+    "ör. Bu ajanı kullanıcı kod incelemesi veya kalite analizi istediğinde kullanın",
+  "settings.agentBehaviour.editMode.whenToUse.none": "Bu yerleşik ajan için tanım belirlenmemiş.",
   "settings.agentBehaviour.removeMode.title": "Modu kaldır",
   "settings.agentBehaviour.removeMode.confirm":
     '"{{name}}" modu kaldırılsın mı? Bu, yapılandırmanızı güncelleyerek modu devre dışı bırakacak.',

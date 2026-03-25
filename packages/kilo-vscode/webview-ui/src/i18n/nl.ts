@@ -1099,6 +1099,12 @@ export const dict = {
     "Ongeldig JSON-bestand. Selecteer een geldig agentdefinitiebestand.",
   "settings.agentBehaviour.importMode.tooLarge": "Bestand is te groot. Agentdefinities moeten kleiner zijn dan 1 MB.",
   "settings.agentBehaviour.exportMode": "Agentdefinitie exporteren",
+  "settings.agentBehaviour.editMode.whenToUse": "Wanneer te gebruiken",
+  "settings.agentBehaviour.editMode.whenToUse.help":
+    "Vertelt de orchestrator wanneer taken aan deze agent moeten worden gedelegeerd.",
+  "settings.agentBehaviour.editMode.whenToUse.placeholder":
+    "bijv. Gebruik deze agent wanneer de gebruiker om code review of kwaliteitsanalyse vraagt",
+  "settings.agentBehaviour.editMode.whenToUse.none": "Geen beschrijving gedefinieerd voor deze ingebouwde agent.",
   "settings.agentBehaviour.removeMode.title": "Verwijder modus",
   "settings.agentBehaviour.removeMode.confirm":
     'Modus "{{name}}" verwijderen? Dit zal de modus uitschakelen door je configuratie bij te werken.',

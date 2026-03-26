@@ -824,8 +824,11 @@ export const dict = {
   "session.delete.button": "Slet session",
   "session.untitled": "Unavngivet",
   "session.recent": "Seneste",
+  "session.showHistory": "Vis historik",
   "session.search.placeholder": "Søg sessioner...",
   "session.empty": "Ingen sessioner endnu. Klik + for at starte en ny samtale.",
+  "session.tab.local": "Local",
+  "session.tab.cloud": "Cloud",
   "session.cloud.repoOnly": "Kun dette repository",
   "session.cloud.import": "Importér fra skyen",
   "feedback.button": "Feedback & support",
@@ -1085,11 +1088,23 @@ export const dict = {
   "settings.agentBehaviour.removeSkill.confirm":
     'Vil du fjerne færdigheden "{{name}}"? Dette vil slette færdighedsfilerne fra disken.',
   "settings.agentBehaviour.removeSkill.button": "Fjern",
+  "settings.agentBehaviour.rules.description":
+    "Regler er instruktionsfiler, der styrer agentens adfærd. De inkluderes i systemprompten for hver samtale. Tilføj filstier nedenfor for at inkludere yderligere regler.",
   "settings.agentBehaviour.instructionFiles": "Yderligere instruktionsfiler",
   "settings.agentBehaviour.instructionFiles.description": "Stier til yderligere instruktionsfiler i systemprompten",
+  "settings.agentBehaviour.mcpDetail.command": "Kommando",
+  "settings.agentBehaviour.mcpDetail.args": "Argumenter",
+  "settings.agentBehaviour.mcpDetail.env": "Miljø",
+  "settings.agentBehaviour.mcpDetail.disabled": "Denne server er deaktiveret.",
   "settings.agentBehaviour.mcpEmpty":
     "Ingen MCP-servere konfigureret. Rediger opencode-konfigurationsfilen for at tilføje MCP-servere.",
   "settings.agentBehaviour.workflowsPlaceholder": "Workflows administreres via workflow-filer i dit arbejdsområde.",
+  "settings.agentBehaviour.workflows.description":
+    "Workflows er brugerdefinerede slash-kommandoer defineret i din konfiguration. Skriv /command-name i chatten for at aktivere dem. Kommandoer konfigureres i opencode.json under sektionen 'command'.",
+  "settings.agentBehaviour.workflows.empty":
+    "Ingen brugerdefinerede kommandoer konfigureret. Tilføj kommandoer til opencode.json for at se dem her.",
+  "settings.agentBehaviour.workflows.detail.description": "Beskrivelse",
+  "settings.agentBehaviour.workflows.detail.template": "Skabelon",
   "settings.agentBehaviour.notImplemented": "Endnu ikke implementeret.",
   "settings.autoApprove.description":
     "Definer, hvordan værktøjer må køre. De fleste værktøjer er som standard indstillet til Tillad. doom_loop og external_directory er som standard indstillet til Spørg.",

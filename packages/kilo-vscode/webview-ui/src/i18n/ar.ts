@@ -818,8 +818,11 @@ export const dict = {
   "session.delete.button": "حذف الجلسة",
   "session.untitled": "بدون عنوان",
   "session.recent": "الأخيرة",
+  "session.showHistory": "عرض السجل",
   "session.search.placeholder": "البحث في الجلسات...",
   "session.empty": "لا توجد جلسات بعد. انقر + لبدء محادثة جديدة.",
+  "session.tab.local": "Local",
+  "session.tab.cloud": "Cloud",
   "session.cloud.repoOnly": "هذا المستودع فقط",
   "session.cloud.import": "استيراد من السحابة",
   "feedback.button": "التغذية الراجعة والدعم",
@@ -1076,10 +1079,21 @@ export const dict = {
   "settings.agentBehaviour.removeSkill.confirm":
     'هل تريد إزالة المهارة "{{name}}"؟ سيؤدي هذا إلى حذف ملفات المهارة من القرص.',
   "settings.agentBehaviour.removeSkill.button": "إزالة",
+  "settings.agentBehaviour.rules.description":
+    "القواعد هي ملفات تعليمات توجه سلوك الوكيل. يتم تضمينها في موجه النظام لكل محادثة. أضف مسارات الملفات أدناه لتضمين قواعد إضافية.",
   "settings.agentBehaviour.instructionFiles": "ملفات تعليمات إضافية",
   "settings.agentBehaviour.instructionFiles.description": "مسارات ملفات التعليمات الإضافية في موجه النظام",
+  "settings.agentBehaviour.mcpDetail.command": "الأمر",
+  "settings.agentBehaviour.mcpDetail.args": "الوسائط",
+  "settings.agentBehaviour.mcpDetail.env": "البيئة",
+  "settings.agentBehaviour.mcpDetail.disabled": "هذا الخادم معطّل.",
   "settings.agentBehaviour.mcpEmpty": "لم يتم تهيئة خوادم MCP. قم بتحرير ملف تهيئة opencode لإضافة خوادم MCP.",
   "settings.agentBehaviour.workflowsPlaceholder": "تُدار سير العمل عبر ملفات سير العمل في مساحة العمل.",
+  "settings.agentBehaviour.workflows.description":
+    "سير العمل هي أوامر شرطة مائلة مخصصة محددة في التهيئة الخاصة بك. اكتب /command-name في الدردشة لتشغيلها. يتم تهيئة الأوامر في opencode.json ضمن قسم 'command'.",
+  "settings.agentBehaviour.workflows.empty": "لم يتم تهيئة أوامر مخصصة. أضف أوامر إلى opencode.json لرؤيتها هنا.",
+  "settings.agentBehaviour.workflows.detail.description": "الوصف",
+  "settings.agentBehaviour.workflows.detail.template": "القالب",
   "settings.agentBehaviour.notImplemented": "لم يتم التنفيذ بعد.",
   "settings.autoApprove.description":
     "تحديد كيفية السماح بتشغيل الأدوات. معظم الأدوات معينة افتراضياً على السماح. doom_loop و external_directory معينة افتراضياً على السؤال.",

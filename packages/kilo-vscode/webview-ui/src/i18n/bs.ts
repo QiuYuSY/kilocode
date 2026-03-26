@@ -830,8 +830,11 @@ export const dict = {
   "session.delete.button": "Izbriši sesiju",
   "session.untitled": "Bez naslova",
   "session.recent": "Nedavne",
+  "session.showHistory": "Prikaži historiju",
   "session.search.placeholder": "Pretraži sesije...",
   "session.empty": "Još nema sesija. Kliknite + za početak novog razgovora.",
+  "session.tab.local": "Local",
+  "session.tab.cloud": "Cloud",
   "session.cloud.repoOnly": "Samo ovaj repozitorij",
   "session.cloud.import": "Uvezi iz oblaka",
   "feedback.button": "Povratne informacije i podrška",
@@ -1090,11 +1093,23 @@ export const dict = {
   "settings.agentBehaviour.removeSkill.confirm":
     'Ukloniti vještinu "{{name}}"? Ovo će obrisati datoteke vještine sa diska.',
   "settings.agentBehaviour.removeSkill.button": "Ukloni",
+  "settings.agentBehaviour.rules.description":
+    "Pravila su datoteke uputa koje usmjeravaju ponašanje agenta. Uključena su u sistemski prompt za svaki razgovor. Dodajte putanje datoteka ispod kako biste uključili dodatna pravila.",
   "settings.agentBehaviour.instructionFiles": "Dodatne datoteke uputa",
   "settings.agentBehaviour.instructionFiles.description": "Putanje do dodatnih datoteka uputa u sistemskom promptu",
+  "settings.agentBehaviour.mcpDetail.command": "Naredba",
+  "settings.agentBehaviour.mcpDetail.args": "Argumenti",
+  "settings.agentBehaviour.mcpDetail.env": "Okruženje",
+  "settings.agentBehaviour.mcpDetail.disabled": "Ovaj server je onemogućen.",
   "settings.agentBehaviour.mcpEmpty":
     "Nema konfiguriranih MCP servera. Uredite konfiguracijsku datoteku opencode za dodavanje MCP servera.",
   "settings.agentBehaviour.workflowsPlaceholder": "Tokovi rada se upravljaju putem datoteka tokova rada.",
+  "settings.agentBehaviour.workflows.description":
+    "Tokovi rada su prilagođene slash komande definirane u vašoj konfiguraciji. Upišite /command-name u chat da ih pokrenete. Komande se konfiguriraju u opencode.json pod sekcijom 'command'.",
+  "settings.agentBehaviour.workflows.empty":
+    "Nema konfiguriranih prilagođenih komandi. Dodajte komande u opencode.json da ih vidite ovdje.",
+  "settings.agentBehaviour.workflows.detail.description": "Opis",
+  "settings.agentBehaviour.workflows.detail.template": "Predložak",
   "settings.agentBehaviour.notImplemented": "Još nije implementirano.",
   "settings.autoApprove.description":
     "Definišite kako je dozvoljeno pokretanje alata. Većina alata je podrazumijevano na Dozvoli. doom_loop i external_directory su podrazumijevano na Pitaj.",

@@ -830,8 +830,11 @@ export const dict = {
   "session.delete.button": "Eliminar sesión",
   "session.untitled": "Sin título",
   "session.recent": "Recientes",
+  "session.showHistory": "Mostrar historial",
   "session.search.placeholder": "Buscar sesiones...",
   "session.empty": "Aún no hay sesiones. Haz clic en + para iniciar una nueva conversación.",
+  "session.tab.local": "Local",
+  "session.tab.cloud": "Cloud",
   "session.cloud.repoOnly": "Solo este repositorio",
   "session.cloud.import": "Importar desde la nube",
   "feedback.button": "Comentarios y soporte",
@@ -1094,13 +1097,25 @@ export const dict = {
   "settings.agentBehaviour.removeSkill.confirm":
     '¿Eliminar la habilidad "{{name}}"? Esto borrará los archivos de la habilidad del disco.',
   "settings.agentBehaviour.removeSkill.button": "Eliminar",
+  "settings.agentBehaviour.rules.description":
+    "Las reglas son archivos de instrucciones que guían el comportamiento del agente. Se incluyen en el prompt del sistema para cada conversación. Añada rutas de archivos a continuación para incluir reglas adicionales.",
   "settings.agentBehaviour.instructionFiles": "Archivos de instrucciones adicionales",
   "settings.agentBehaviour.instructionFiles.description":
     "Rutas a archivos de instrucciones adicionales incluidos en el prompt del sistema",
+  "settings.agentBehaviour.mcpDetail.command": "Comando",
+  "settings.agentBehaviour.mcpDetail.args": "Argumentos",
+  "settings.agentBehaviour.mcpDetail.env": "Entorno",
+  "settings.agentBehaviour.mcpDetail.disabled": "Este servidor está deshabilitado.",
   "settings.agentBehaviour.mcpEmpty":
     "No hay servidores MCP configurados. Edite el archivo de configuración de opencode para añadir servidores MCP.",
   "settings.agentBehaviour.workflowsPlaceholder":
     "Los flujos de trabajo se gestionan mediante archivos de flujo de trabajo en su espacio de trabajo.",
+  "settings.agentBehaviour.workflows.description":
+    "Los flujos de trabajo son comandos de barra personalizados definidos en su configuración. Escriba /command-name en el chat para invocarlos. Los comandos se configuran en opencode.json en la sección 'command'.",
+  "settings.agentBehaviour.workflows.empty":
+    "No hay comandos personalizados configurados. Añada comandos a opencode.json para verlos aquí.",
+  "settings.agentBehaviour.workflows.detail.description": "Descripción",
+  "settings.agentBehaviour.workflows.detail.template": "Plantilla",
   "settings.agentBehaviour.notImplemented": "Aún no implementado.",
   "settings.autoApprove.description":
     "Defina cómo se permite la ejecución de las herramientas. La mayoría de las herramientas tienen como valor predeterminado Permitir. doom_loop y external_directory tienen como valor predeterminado Preguntar.",

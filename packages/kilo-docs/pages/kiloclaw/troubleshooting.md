@@ -49,6 +49,20 @@ The OpenClaw process is automatically restarted when it crashes. Check the Gatew
 
 After selecting a new model, click **Save & Provision** to apply it. This refreshes the API key and saves the new model. You may also need to **Restart OpenClaw** for the change to take full effect.
 
+### My Google OAuth token was revoked
+
+If you receive a message that the OAuth token for Google Drive or Gmail has been revoked, this typically happens when the Google account linked to KiloClaw was temporarily suspended or reset by Google — for example, if the account was flagged as "automatically created."
+
+To fix this:
+
+1. Go to the **Settings** tab on your [KiloClaw dashboard](/docs/kiloclaw/dashboard) and **disconnect** the Google account
+2. Follow the [Google Workspace setup steps](/docs/kiloclaw/development-tools/google#setup) again to reconnect and refresh the OAuth token
+3. **Redeploy** your KiloClaw instance from the dashboard to apply the new credentials
+
+{% callout type="tip" %}
+To reduce the chance of this happening, use a well-established Google account for KiloClaw rather than a freshly created one. See the [Google Workspace Integration](/docs/kiloclaw/development-tools/google) guide for recommendations.
+{% /callout %}
+
 ## Gateway Process States
 
 The Gateway Process tab shows the current state of the OpenClaw process inside your machine:

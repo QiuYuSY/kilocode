@@ -35,7 +35,7 @@ export class ServerManager {
    */
   async getServer(workspaceDir: string): Promise<ServerInstance> {
     console.log("[Kilo New] ServerManager: getServer called")
-    this.workdir = workspaceDir
+    this.workdir ??= workspaceDir
 
     // For reconnected servers (no ChildProcess exit handler), re-check liveness.
     if (this.instance && !this.instance.process && !ServerManager.isProcessAlive(this.instance.pid)) {

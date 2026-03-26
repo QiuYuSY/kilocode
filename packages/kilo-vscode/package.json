@@ -52,7 +52,10 @@
       {
         "command": "kilo-code.new.marketplaceButtonClicked",
         "title": "Marketplace",
-        "icon": "$(extensions)"
+        "icon": {
+          "light": "assets/icons/marketplace-light.svg",
+          "dark": "assets/icons/marketplace-dark.svg"
+        }
       },
       {
         "command": "kilo-code.new.historyButtonClicked",

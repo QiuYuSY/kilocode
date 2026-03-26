@@ -15,7 +15,7 @@ export const LoginBanner: Component = () => {
   const language = useLanguage()
 
   return (
-    <Show when={!server.profileData()}>
+    <Show when={server.profileLoaded() && !server.profileData()}>
       <button type="button" class="kilo-login-banner" onClick={() => vscode.postMessage({ type: "openProfilePanel" })}>
         <span class="kilo-login-banner-title">{language.t("welcome.login.title")}</span>
         <span class="kilo-login-banner-desc">{language.t("welcome.login.desc")}</span>

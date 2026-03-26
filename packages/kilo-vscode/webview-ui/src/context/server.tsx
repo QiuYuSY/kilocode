@@ -15,6 +15,7 @@ interface ServerContextValue {
   errorDetails: Accessor<string | undefined>
   isConnected: Accessor<boolean>
   profileData: Accessor<ProfileData | null>
+  profileLoaded: Accessor<boolean>
   deviceAuth: Accessor<DeviceAuthState>
   startLogin: () => void
   vscodeLanguage: Accessor<string | undefined>
@@ -35,6 +36,7 @@ export const ServerProvider: ParentComponent = (props) => {
   const [errorMessage, setErrorMessage] = createSignal<string | undefined>()
   const [errorDetails, setErrorDetails] = createSignal<string | undefined>()
   const [profileData, setProfileData] = createSignal<ProfileData | null>(null)
+  const [profileLoaded, setProfileLoaded] = createSignal(false)
   const [deviceAuth, setDeviceAuth] = createSignal<DeviceAuthState>(initialDeviceAuth)
   const [vscodeLanguage, setVscodeLanguage] = createSignal<string | undefined>()
   const [languageOverride, setLanguageOverride] = createSignal<string | undefined>()
@@ -90,6 +92,7 @@ export const ServerProvider: ParentComponent = (props) => {
         case "profileData":
           console.log("[Kilo New] Profile data:", message.data ? "received" : "null")
           setProfileData(message.data)
+          setProfileLoaded(true)
           break
 
         case "deviceAuthStarted":
@@ -146,6 +149,7 @@ export const ServerProvider: ParentComponent = (props) => {
     errorDetails,
     isConnected: () => connectionState() === "connected",
     profileData,
+    profileLoaded,
     deviceAuth,
     startLogin,
     vscodeLanguage,

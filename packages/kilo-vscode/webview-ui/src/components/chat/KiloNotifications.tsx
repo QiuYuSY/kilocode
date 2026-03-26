@@ -4,6 +4,7 @@ import { useVSCode } from "../../context/vscode"
 import { useSession } from "../../context/session"
 import { useProvider } from "../../context/provider"
 import { useLanguage } from "../../context/language"
+import { sanitizeName } from "../shared/model-selector-utils"
 import { KILO_PROVIDER_ID } from "../../../../src/shared/provider-model"
 import { TelemetryEventName } from "../../../../src/services/telemetry/types"
 
@@ -61,6 +62,13 @@ export const KiloNotifications: Component = () => {
     return true
   })
 
+  const suggestedName = createMemo(() => {
+    const sel = suggestedModel()
+    if (!sel) return undefined
+    const model = provider.findModel(sel)
+    return model ? sanitizeName(model.name) : undefined
+  })
+
   const handleTryModel = () => {
     const suggestion = suggestedModel()
     if (!suggestion) return
@@ -88,7 +96,7 @@ export const KiloNotifications: Component = () => {
           <div class="kilo-notifications-footer">
             <Show when={canSwitchModel()}>
               <button class="kilo-notifications-action-btn" onClick={handleTryModel}>
-                {language.t("notifications.action.tryModel")}
+                {language.t("notifications.action.tryModel", { name: suggestedName() })}
               </button>
             </Show>
             <Show when={current()?.action}>

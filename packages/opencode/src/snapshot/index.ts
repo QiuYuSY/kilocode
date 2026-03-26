@@ -245,15 +245,13 @@ export namespace Snapshot {
     return result
   }
 
+  // kilocode_change start
   function gitdir() {
     const project = Instance.project
-    // kilocode_change start
     const workhash = Bun.hash(Instance.worktree).toString(36)
     return path.join(Global.Path.data, "snapshot", project.id, workhash)
-    // kilocode_change end
   }
 
-  // kilocode_change start
   function legacygitdir() {
     const project = Instance.project
     return path.join(Global.Path.data, "snapshot", project.id)

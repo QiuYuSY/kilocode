@@ -80,6 +80,16 @@
         "icon": "$(agent)"
       },
       {
+        "command": "kilo-code.new.agentManagerOpenSidebar",
+        "title": "Agent Manager",
+        "icon": "$(agent)"
+      },
+      {
+        "command": "kilo-code.new.agentManagerOpenShortcut",
+        "title": "Agent Manager",
+        "icon": "$(agent)"
+      },
+      {
         "command": "kilo-code.new.marketplaceButtonClicked",
         "title": "Marketplace",
         "icon": "$(extensions)"
@@ -333,7 +343,7 @@
           "when": "view == kilo-code.SidebarProvider"
         },
         {
-          "command": "kilo-code.new.agentManagerOpen",
+          "command": "kilo-code.new.agentManagerOpenSidebar",
           "group": "navigation@2",
           "when": "view == kilo-code.SidebarProvider"
         },
@@ -404,6 +414,16 @@
           "group": "2_kilocode"
         }
       ],
+      "commandPalette": [
+        {
+          "command": "kilo-code.new.agentManagerOpenSidebar",
+          "when": "false"
+        },
+        {
+          "command": "kilo-code.new.agentManagerOpenShortcut",
+          "when": "false"
+        }
+      ],
       "kilo-code.new.terminalContextMenu": [
         {
           "command": "kilo-code.new.terminalAddToContext",
@@ -436,7 +456,7 @@
         "mac": "cmd+shift+g"
       },
       {
-        "command": "kilo-code.new.agentManagerOpen",
+        "command": "kilo-code.new.agentManagerOpenShortcut",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m"
       },

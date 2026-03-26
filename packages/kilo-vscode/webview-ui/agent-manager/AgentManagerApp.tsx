@@ -91,6 +91,7 @@ import type { ReviewComment } from "./review-comments"
 import { BranchSelect } from "./BranchSelect"
 import { WorktreeItem } from "./WorktreeItem"
 import { mergeWorktreeDiffs } from "./diff-state"
+import { TelemetryEventName } from "../../src/services/telemetry/types"
 import "./agent-manager.css"
 import "./agent-manager-review.css"
 
@@ -359,6 +360,39 @@ const AgentManagerContent: Component = () => {
   const PENDING_PREFIX = "pending:"
   const [activePendingId, setActivePendingId] = createSignal<string | undefined>()
 
+  const counts = createMemo(() => {
+    const list = managedSessions()
+    const status = session.allStatusMap()
+    const worktree = list.filter((item) => item.worktreeId !== null).length
+    const active = list.filter((item) => {
+      const type = status[item.id]?.type
+      return type === "busy" || type === "retry"
+    }).length
+    return {
+      managedSessionCount: list.length,
+      localSessionCount: list.length - worktree,
+      worktreeSessionCount: worktree,
+      worktreeCount: worktrees().length,
+      activeSessionCount: active,
+      pendingTabCount: localSessionIDs().filter((id) => id.startsWith(PENDING_PREFIX)).length,
+    }
+  })
+
+  const selectionState = () => (selection() === LOCAL ? "local" : selection() ? "worktree" : "unassigned")
+  const telemetry = (event: string, properties?: Record<string, unknown>) => {
+    vscode.postMessage({
+      type: "telemetry",
+      event,
+      properties: { surface: "agent_manager", selection: selectionState(), ...counts(), ...(properties ?? {}) },
+    })
+  }
+  const action = (name: string, properties?: Record<string, unknown>) => {
+    telemetry(TelemetryEventName.AGENT_MANAGER_ACTION, { action: name, ...(properties ?? {}) })
+  }
+  const review = (surface: string, name: string, properties?: Record<string, unknown>) => {
+    telemetry(TelemetryEventName.REVIEW_COMMENT_ACTION, { action: name, surface, ...(properties ?? {}) })
+  }
+
   // Inline delete confirmation: tracks which worktree is awaiting a second click/press
   const [pendingDelete, setPendingDelete] = createSignal<string | null>(null)
   let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined
@@ -569,9 +603,10 @@ const AgentManagerContent: Component = () => {
     )
   }
 
-  const openWorktreeDirectory = () => {
+  const openWorktreeDirectory = (trigger = "button") => {
     const sel = selection()
     if (!sel || sel === LOCAL) return
+    action("open_worktree", { trigger })
     vscode.postMessage({ type: "agentManager.openWorktree", worktreeId: sel })
   }
 
@@ -1006,23 +1041,25 @@ const AgentManagerContent: Component = () => {
       else if (msg.action === "tabPrevious") navigateTab("left")
       else if (msg.action === "tabNext") navigateTab("right")
       else if (msg.action === "showTerminal") {
+        action("show_terminal", { trigger: "command" })
         const id = session.currentSessionID()
         if (id) vscode.postMessage({ type: "agentManager.showTerminal", sessionId: id })
         else if (selection() === LOCAL) vscode.postMessage({ type: "agentManager.showLocalTerminal" })
       } else if (msg.action === "toggleDiff") {
+        action("toggle_diff", { trigger: "command", open: reviewActive() || !diffOpen() })
         if (reviewActive()) {
           closeReviewTab()
           setDiffOpen(true)
         } else {
           setDiffOpen((prev) => !prev)
         }
-      } else if (msg.action === "newTab") handleNewTabForCurrentSelection()
+      } else if (msg.action === "newTab") handleNewTabForCurrentSelection("command")
       else if (msg.action === "closeTab") closeActiveTab()
-      else if (msg.action === "newWorktree") handleNewWorktreeOrPromote()
-      else if (msg.action === "openWorktree") openWorktreeDirectory()
-      else if (msg.action === "advancedWorktree") showAdvancedWorktreeDialog()
+      else if (msg.action === "newWorktree") handleNewWorktreeOrPromote("command")
+      else if (msg.action === "openWorktree") openWorktreeDirectory("command")
+      else if (msg.action === "advancedWorktree") showAdvancedWorktreeDialog("command")
       else if (msg.action === "closeWorktree") closeSelectedWorktree()
-      else if (msg.action === "showShortcuts") handleShowKeyboardShortcuts()
+      else if (msg.action === "showShortcuts") handleShowKeyboardShortcuts("command")
       else if (msg.action === "focusInput") window.dispatchEvent(new Event("focusPrompt"))
       else if (msg.action === "cycleAgentMode" && document.hasFocus()) cycleAgent(1)
       else if (msg.action === "cyclePreviousAgentMode" && document.hasFocus()) cycleAgent(-1)
@@ -1562,6 +1599,7 @@ const AgentManagerContent: Component = () => {
   })
 
   const handleConfigureSetupScript = () => {
+    action("configure_setup_script", { trigger: "button" })
     vscode.postMessage({ type: "agentManager.configureSetupScript" })
   }
 
@@ -1661,7 +1699,8 @@ const AgentManagerContent: Component = () => {
     })
   }
 
-  const handleShowKeyboardShortcuts = () => {
+  const handleShowKeyboardShortcuts = (trigger = "button") => {
+    action("show_shortcuts", { trigger })
     const categories = buildShortcutCategories(kb(), t)
     dialog.show(() => (
       <Dialog title={t("agentManager.shortcuts.title")} fit>
@@ -1694,14 +1733,26 @@ const AgentManagerContent: Component = () => {
 
   const loaded = () => worktreesLoaded() && sessionsLoaded()
 
-  const handleCreateWorktree = () => {
+  let lastSnapshot = ""
+  createEffect(() => {
     if (!loaded()) return
+    const next = JSON.stringify(counts())
+    if (next === lastSnapshot) return
+    const trigger = lastSnapshot ? "state_changed" : "panel_loaded"
+    lastSnapshot = next
+    telemetry(TelemetryEventName.AGENT_MANAGER_STATE_SNAPSHOT, { trigger })
+  })
+
+  const handleCreateWorktree = (trigger = "button") => {
+    if (!loaded()) return
+    action("create_worktree", { status: "requested", trigger })
     vscode.postMessage({ type: "agentManager.createWorktree" })
   }
 
   // Advanced worktree dialog — opens a full dialog with prompt, versions, model, mode
-  const showAdvancedWorktreeDialog = () => {
+  const showAdvancedWorktreeDialog = (trigger = "button") => {
     if (!loaded()) return
+    action("open_advanced_worktree_dialog", { trigger })
     dialog.show(() => <NewWorktreeDialog onClose={() => dialog.close()} defaultBaseBranch={repoDefaultBranch()} />)
   }
 
@@ -1787,6 +1838,11 @@ const AgentManagerContent: Component = () => {
   const handlePromote = (sessionId: string, e: MouseEvent) => {
     e.stopPropagation()
     if (!loaded()) return
+    action("continue_session", {
+      origin: "agent_manager_local_session",
+      status: "requested",
+      trigger: "button",
+    })
     vscode.postMessage({ type: "agentManager.promoteSession", sessionId })
   }
 
@@ -1802,23 +1858,28 @@ const AgentManagerContent: Component = () => {
     setSelection(LOCAL)
     setReviewActive(false)
     session.selectSession(sid)
+    action("open_locally", { trigger: "button" })
     vscode.postMessage({ type: "agentManager.openLocally", sessionId: sid })
   }
 
-  const handleAddSession = () => {
+  const handleAddSession = (trigger = "button") => {
     const sel = selection()
     if (sel === LOCAL) {
+      action("new_tab", { trigger })
       addPendingTab()
     } else if (sel) {
+      action("add_session_to_worktree", { status: "requested", trigger })
       vscode.postMessage({ type: "agentManager.addSessionToWorktree", worktreeId: sel })
     }
   }
 
-  const handleForkSession = (sessionId: string) => {
+  const handleForkSession = (sessionId: string, trigger = "button") => {
     const sel = selection()
     if (sel === LOCAL) {
+      action("fork_session", { trigger, target: "local" })
       vscode.postMessage({ type: "agentManager.forkSession", sessionId })
     } else if (sel) {
+      action("fork_session", { trigger, target: "worktree" })
       vscode.postMessage({ type: "agentManager.forkSession", sessionId, worktreeId: sel })
     }
   }
@@ -1955,26 +2016,33 @@ const AgentManagerContent: Component = () => {
   }
 
   // Cmd+T: add a new tab strictly to the current selection (no side effects)
-  const handleNewTabForCurrentSelection = () => {
+  const handleNewTabForCurrentSelection = (trigger = "command") => {
     const sel = selection()
     if (sel === LOCAL) {
+      action("new_tab", { trigger })
       addPendingTab()
     } else if (sel) {
+      action("add_session_to_worktree", { status: "requested", trigger })
       // Pass the captured worktree ID directly to avoid race conditions
       vscode.postMessage({ type: "agentManager.addSessionToWorktree", worktreeId: sel })
     }
   }
 
   // Cmd+N: if an unassigned session is selected, promote it; otherwise create a new worktree
-  const handleNewWorktreeOrPromote = () => {
+  const handleNewWorktreeOrPromote = (trigger = "command") => {
     if (!loaded()) return
     const sel = selection()
     const sid = session.currentSessionID()
     if (sel === null && sid && !worktreeSessionIds().has(sid)) {
+      action("continue_session", {
+        origin: "agent_manager_local_session",
+        status: "requested",
+        trigger,
+      })
       vscode.postMessage({ type: "agentManager.promoteSession", sessionId: sid })
       return
     }
-    handleCreateWorktree()
+    handleCreateWorktree(trigger)
   }
 
   // Close the currently selected worktree with a confirmation dialog
@@ -2091,7 +2159,7 @@ const AgentManagerContent: Component = () => {
                     size="small"
                     variant="ghost"
                     label={t("agentManager.worktree.new")}
-                    onClick={handleCreateWorktree}
+                    onClick={() => handleCreateWorktree()}
                     disabled={!loaded()}
                   />
                   <DropdownMenu gutter={4} placement="bottom-end">
@@ -2136,7 +2204,7 @@ const AgentManagerContent: Component = () => {
                     size="small"
                     variant="ghost"
                     label={t("agentManager.shortcuts.title")}
-                    onClick={handleShowKeyboardShortcuts}
+                    onClick={() => handleShowKeyboardShortcuts()}
                   />
                 </TooltipKeybind>
                 <DropdownMenu gutter={4} placement="bottom-end">
@@ -2360,7 +2428,7 @@ const AgentManagerContent: Component = () => {
                   )
                 })()}
                 <Show when={worktrees().length === 0}>
-                  <button class="am-worktree-create" onClick={handleCreateWorktree}>
+                  <button class="am-worktree-create" onClick={() => handleCreateWorktree()}>
                     <Icon name="plus" size="small" />
                     <span>{t("agentManager.worktree.new")}</span>
                   </button>
@@ -2560,7 +2628,7 @@ const AgentManagerContent: Component = () => {
                   variant="ghost"
                   label={t("agentManager.session.new")}
                   class="am-tab-add"
-                  onClick={handleAddSession}
+                  onClick={() => handleAddSession()}
                 />
               </TooltipKeybind>
               <div class="am-tab-actions">
@@ -2612,6 +2680,7 @@ const AgentManagerContent: Component = () => {
                         <button
                           class={`am-diff-toggle-btn ${diffOpen() && !reviewActive() ? "am-tab-diff-btn-active" : ""} ${hasChanges() ? "am-diff-toggle-has-changes" : ""}`}
                           onClick={() => {
+                            action("toggle_diff", { trigger: "button", open: reviewActive() || !diffOpen() })
                             if (reviewActive()) {
                               closeReviewTab()
                               setDiffOpen(true)
@@ -2644,7 +2713,10 @@ const AgentManagerContent: Component = () => {
                       variant="ghost"
                       label={t("command.review.toggle")}
                       class={reviewActive() ? "am-tab-diff-btn-active" : ""}
-                      onClick={toggleReviewTab}
+                      onClick={() => {
+                        action("toggle_review", { trigger: "button", open: !reviewActive() })
+                        toggleReviewTab()
+                      }}
                     />
                   </Tooltip>
                 </Show>
@@ -2659,6 +2731,7 @@ const AgentManagerContent: Component = () => {
                     variant="ghost"
                     label={t("agentManager.tab.openTerminal")}
                     onClick={() => {
+                      action("show_terminal", { trigger: "button" })
                       const id = session.currentSessionID()
                       if (id) vscode.postMessage({ type: "agentManager.showTerminal", sessionId: id })
                       else if (selection() === LOCAL) vscode.postMessage({ type: "agentManager.showLocalTerminal" })
@@ -2825,10 +2898,12 @@ const AgentManagerContent: Component = () => {
                     loadingFiles={diffFileLoadingForCurrent()}
                     sessionId={currentDiffSessionId()}
                     sessionKey={diffSessionKey()}
+                    commentSource="agent_manager_diff_panel"
                     diffStyle={reviewDiffStyle()}
                     onDiffStyleChange={setSharedDiffStyle}
                     comments={reviewComments()}
                     onCommentsChange={setReviewCommentsForSelection}
+                    onCommentAction={(name, props) => review("agent_manager_diff_panel", name, props)}
                     onClose={() => setDiffOpen(false)}
                     onExpand={selection() !== null ? openReviewTab : undefined}
                     onRequestDiff={requestDiffFile}
@@ -2851,9 +2926,11 @@ const AgentManagerContent: Component = () => {
                 loadingFiles={diffFileLoadingForCurrent()}
                 sessionId={currentDiffSessionId()}
                 sessionKey={diffSessionKey()}
+                commentSource="agent_manager_review"
                 comments={reviewComments()}
                 onCommentsChange={setReviewCommentsForSelection}
-                onSendAll={closeReviewTab}
+                onCommentAction={(name, props) => review("agent_manager_review", name, props)}
+                onSendAll={() => closeReviewTab()}
                 diffStyle={reviewDiffStyle()}
                 onDiffStyleChange={setSharedDiffStyle}
                 onRequestDiff={requestDiffFile}

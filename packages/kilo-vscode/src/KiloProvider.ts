@@ -113,7 +113,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private pending = 0
   /** Cached notificationsLoaded payload */
   private cachedNotificationsMessage: unknown = null
-  private pendingReviewComments: { comments: unknown[]; autoSend: boolean }[] = []
+  private pendingReviewComments: { comments: unknown[]; autoSend: boolean; source?: string }[] = []
   private readyResolvers: (() => void)[] = []
   private trackedSessionIds: Set<string> = new Set()
   private syncedChildSessions: Set<string> = new Set()
@@ -556,7 +556,10 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           vscode.commands.executeCommand("kilo-code.new.settingsButtonClicked", message.tab)
           break
         case "openChanges":
-          vscode.commands.executeCommand("kilo-code.new.showChanges")
+          vscode.commands.executeCommand(
+            "kilo-code.new.showChanges",
+            typeof message.source === "string" ? message.source : undefined,
+          )
           break
         case "continueInWorktree":
           if (message.sessionId && this.continueInWorktreeHandler) {
@@ -1822,7 +1825,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   }
 
   /** Returns the number of sessions currently in "busy" state. */
-  private getBusySessionCount(): number {
+  public getBusySessionCount(): number {
     return getBusySessionCount(this.sessionStatusMap)
   }
 
@@ -2456,8 +2459,8 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     })
   }
 
-  public async appendReviewComments(comments: unknown[], autoSend = false): Promise<void> {
-    this.pendingReviewComments.push({ comments, autoSend })
+  public async appendReviewComments(comments: unknown[], autoSend = false, source?: string): Promise<void> {
+    this.pendingReviewComments.push({ comments, autoSend, source })
 
     if (!this.webview) {
       await vscode.commands.executeCommand(`${KiloProvider.viewType}.focus`)
@@ -2473,7 +2476,12 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.pendingReviewComments = []
 
     for (const entry of pending) {
-      this.postMessage({ type: "appendReviewComments", comments: entry.comments, autoSend: entry.autoSend })
+      this.postMessage({
+        type: "appendReviewComments",
+        comments: entry.comments,
+        autoSend: entry.autoSend,
+        source: entry.source,
+      })
     }
   }
 

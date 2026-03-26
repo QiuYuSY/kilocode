@@ -20,6 +20,7 @@ import { useVSCode } from "../../context/vscode"
 import { useLanguage } from "../../context/language"
 import { useWorktreeMode } from "../../context/worktree-mode"
 import { useServer } from "../../context/server"
+import { TelemetryEventName } from "../../../../src/services/telemetry/types"
 
 interface ChatViewProps {
   onSelectSession?: (id: string) => void
@@ -170,6 +171,17 @@ export const ChatView: Component<ChatViewProps> = (props) => {
                       onClick={() => {
                         const sid = id()
                         if (!sid) return
+                        vscode.postMessage({
+                          type: "telemetry",
+                          event: TelemetryEventName.AGENT_MANAGER_ACTION,
+                          properties: {
+                            action: "continue_session",
+                            origin: "sidebar_session",
+                            status: "requested",
+                            trigger: "button",
+                            surface: "sidebar_chat",
+                          },
+                        })
                         setTransferring(true)
                         setTransferDetail("Capturing changes...")
                         vscode.postMessage({ type: "continueInWorktree", sessionId: sid })
@@ -187,7 +199,7 @@ export const ChatView: Component<ChatViewProps> = (props) => {
                   <Tooltip value="View file changes" placement="top" class="session-diff-wrapper">
                     <button
                       class="session-diff-badge"
-                      onClick={() => vscode.postMessage({ type: "openChanges" })}
+                      onClick={() => vscode.postMessage({ type: "openChanges", source: "sidebar_session_button" })}
                       aria-label={language.t("command.session.show.changes")}
                     >
                       <Icon name="layers" size="small" />

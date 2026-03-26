@@ -598,6 +598,7 @@ export interface AppendReviewCommentsMessage {
   type: "appendReviewComments"
   comments: ReviewComment[]
   autoSend?: boolean
+  source?: string
 }
 
 export interface TriggerTaskMessage {
@@ -1832,6 +1833,7 @@ export interface EnhancePromptRequest {
 // Open the standalone changes viewer tab from the sidebar
 export interface OpenChangesRequest {
   type: "openChanges"
+  source?: string
 }
 
 export interface RetryConnectionRequest {

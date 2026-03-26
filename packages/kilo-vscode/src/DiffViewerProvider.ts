@@ -3,6 +3,7 @@ import type { FileDiff } from "@kilocode/sdk/v2/client"
 import type { KiloConnectionService } from "./services/cli-backend"
 import { buildWebviewHtml } from "./utils"
 import { GitOps } from "./agent-manager/GitOps"
+import { PLATFORM } from "./agent-manager/constants"
 import {
   appendOutput,
   getWorkspaceRoot,
@@ -10,6 +11,7 @@ import {
   openWorkspaceRelativeFile,
   resolveLocalDiffTarget,
 } from "./review-utils"
+import { TelemetryProxy, TelemetryEventName } from "./services/telemetry"
 
 /**
  * DiffViewerProvider opens a full-screen diff viewer in an editor tab.
@@ -42,11 +44,22 @@ export class DiffViewerProvider implements vscode.Disposable {
     this.onSendComments = handler
   }
 
-  public openPanel(): void {
+  public openPanel(entry = "command"): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.One)
+      TelemetryProxy.capture(TelemetryEventName.DIFF_VIEWER_OPENED, {
+        source: PLATFORM,
+        entry,
+        alreadyOpen: true,
+      })
       return
     }
+
+    TelemetryProxy.capture(TelemetryEventName.DIFF_VIEWER_OPENED, {
+      source: PLATFORM,
+      entry,
+      alreadyOpen: false,
+    })
 
     const panel = vscode.window.createWebviewPanel(DiffViewerProvider.viewType, "Changes", vscode.ViewColumn.One, {
       enableScripts: true,
@@ -96,6 +109,11 @@ export class DiffViewerProvider implements vscode.Disposable {
 
     if (type === "diffViewer.sendComments" && Array.isArray(msg.comments)) {
       this.onSendComments?.(msg.comments, !!msg.autoSend)
+      return
+    }
+
+    if (type === "telemetry" && typeof msg.event === "string") {
+      TelemetryProxy.capture(msg.event as TelemetryEventName, msg.properties as Record<string, unknown> | undefined)
       return
     }
 

@@ -82,6 +82,7 @@ export class VscodeHost implements Host {
       setSessionDirectory: (id, dir) => provider.setSessionDirectory(id, dir),
       clearSessionDirectory: (id) => provider.clearSessionDirectory(id),
       getSessionDirectories: () => provider.getSessionDirectories(),
+      getBusySessionCount: () => provider.getBusySessionCount(),
       trackSession: (id) => provider.trackSession(id),
       refreshSessions: () => provider.refreshSessions(),
       registerSession: (s) => provider.registerSession(s),

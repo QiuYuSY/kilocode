@@ -31,11 +31,13 @@ interface DiffPanelProps {
   loadingFiles?: Set<string>
   sessionId?: string
   sessionKey?: string
+  commentSource?: string
   diffStyle?: "unified" | "split"
   onDiffStyleChange?: (style: "unified" | "split") => void
   comments: ReviewComment[]
   onCommentsChange: (comments: ReviewComment[]) => void
-  onSendAll?: () => void
+  onCommentAction?: (action: string, props?: Record<string, unknown>) => void
+  onSendAll?: (count: number) => void
   onClose: () => void
   onExpand?: () => void
   onRequestDiff?: (file: string) => void
@@ -178,6 +180,7 @@ export const DiffPanel: Component<DiffPanelProps> = (props) => {
       setDraft(null)
       draftMeta = null
     })
+    props.onCommentAction?.("added", { count: 1 })
     focusRoot()
   }
 
@@ -186,6 +189,7 @@ export const DiffPanel: Component<DiffPanelProps> = (props) => {
       updateComments((prev) => prev.map((c) => (c.id === id ? { ...c, comment: text } : c)))
       setEditing(null)
     })
+    props.onCommentAction?.("edited", { count: 1 })
     focusRoot()
   }
 
@@ -260,6 +264,20 @@ export const DiffPanel: Component<DiffPanelProps> = (props) => {
       addComment,
       updateComment,
       deleteComment,
+      sendComment: (comment) => {
+        props.onCommentAction?.("send_to_chat_requested", { count: 1 })
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: {
+              type: "appendReviewComments",
+              comments: [comment],
+              autoSend: true,
+              source: props.commentSource ?? "agent_manager_diff_panel",
+            },
+          }),
+        )
+        deleteComment(comment.id)
+      },
       cancelDraft,
       labels: labels(),
     })
@@ -284,11 +302,19 @@ export const DiffPanel: Component<DiffPanelProps> = (props) => {
   const sendAllToChat = () => {
     const all = comments()
     if (all.length === 0) return
+    props.onCommentAction?.("send_to_chat_requested", { count: all.length, bulk: true })
     window.dispatchEvent(
-      new MessageEvent("message", { data: { type: "appendReviewComments", comments: all, autoSend: true } }),
+      new MessageEvent("message", {
+        data: {
+          type: "appendReviewComments",
+          comments: all,
+          autoSend: true,
+          source: props.commentSource ?? "agent_manager_diff_panel",
+        },
+      }),
     )
     preserveScroll(() => setComments([]))
-    props.onSendAll?.()
+    props.onSendAll?.(all.length)
   }
 
   const handleKeyDown = (e: KeyboardEvent) => {

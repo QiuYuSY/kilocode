@@ -15,6 +15,7 @@ import { LanguageProvider } from "../src/context/language"
 import { ServerProvider, useServer } from "../src/context/server"
 import { getVSCodeAPI, VSCodeProvider, useVSCode } from "../src/context/vscode"
 import type { ReviewComment, WorktreeFileDiff } from "../src/types/messages"
+import { TelemetryEventName } from "../../src/services/telemetry/types"
 
 type DiffStyle = "unified" | "split"
 
@@ -51,13 +52,23 @@ const DiffViewerContent: Component = () => {
     window.removeEventListener("message", handler)
   })
 
+  const telemetry = (action: string, properties?: Record<string, unknown>) => {
+    post({
+      type: "telemetry",
+      event: TelemetryEventName.REVIEW_COMMENT_ACTION,
+      properties: { action, surface: "diff_viewer", ...(properties ?? {}) },
+    })
+  }
+
   return (
     <FullScreenDiffView
       diffs={diffs()}
       loading={loading()}
       sessionKey="local"
+      commentSource="diff_viewer"
       comments={comments()}
       onCommentsChange={setComments}
+      onCommentAction={telemetry}
       onSendAll={() => {}}
       diffStyle={diffStyle()}
       onDiffStyleChange={(style) => {

@@ -60,7 +60,11 @@ export function activate(context: vscode.ExtensionContext) {
   // The terminal intercepts all keystrokes unless the command is listed in
   // terminal.integrated.commandsToSkipShell, which only contains built-in
   // commands by default.
-  ensureCommandsSkipShell(["kilo-code.new.agentManagerOpen", "kilo-code.new.agentManager.showTerminal"])
+  ensureCommandsSkipShell([
+    "kilo-code.new.agentManagerOpen",
+    "kilo-code.new.agentManagerOpenShortcut",
+    "kilo-code.new.agentManager.showTerminal",
+  ])
 
   // Create Agent Manager provider for editor panel
   const agentManagerHost = new VscodeHost(context.extensionUri, connectionService, context)
@@ -107,7 +111,7 @@ export function activate(context: vscode.ExtensionContext) {
   // Create standalone diff viewer provider for the sidebar "Show Changes" action
   const diffViewerProvider = new DiffViewerProvider(context.extensionUri, connectionService)
   diffViewerProvider.setCommentHandler((comments, autoSend) => {
-    void provider.appendReviewComments(comments, autoSend)
+    void provider.appendReviewComments(comments, autoSend, "diff_viewer")
   })
   context.subscriptions.push(diffViewerProvider)
 
@@ -158,7 +162,13 @@ export function activate(context: vscode.ExtensionContext) {
       provider.postMessage({ type: "action", action: "plusButtonClicked" })
     }),
     vscode.commands.registerCommand("kilo-code.new.agentManagerOpen", () => {
-      agentManagerProvider.openPanel()
+      agentManagerProvider.openPanel("command")
+    }),
+    vscode.commands.registerCommand("kilo-code.new.agentManagerOpenSidebar", () => {
+      agentManagerProvider.openPanel("sidebar_title_button")
+    }),
+    vscode.commands.registerCommand("kilo-code.new.agentManagerOpenShortcut", () => {
+      agentManagerProvider.openPanel("keyboard_shortcut")
     }),
     vscode.commands.registerCommand("kilo-code.new.marketplaceButtonClicked", () => {
       settingsEditorProvider.openPanel("marketplace")
@@ -198,8 +208,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("kilo-code.new.openInTab", () => {
       return openKiloInNewTab(context, connectionService)
     }),
-    vscode.commands.registerCommand("kilo-code.new.showChanges", () => {
-      diffViewerProvider.openPanel()
+    vscode.commands.registerCommand("kilo-code.new.showChanges", (entry?: string) => {
+      diffViewerProvider.openPanel(typeof entry === "string" ? entry : "command")
     }),
     vscode.commands.registerCommand("kilo-code.new.openSubAgentViewer", (sessionID: string, title?: string) => {
       subAgentViewerProvider.openPanel(sessionID, title)

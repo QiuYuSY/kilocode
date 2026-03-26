@@ -28,6 +28,7 @@ import { WandSparkles } from "@kilocode/kilo-ui/lucide"
 import { fileName, dirName, buildHighlightSegments, atEnd } from "./prompt-input-utils"
 import type { ReviewComment, TextPart } from "../../types/messages"
 import { formatReviewCommentsMarkdown } from "../../utils/review-comment-markdown"
+import { TelemetryEventName } from "../../../../src/services/telemetry/types"
 
 // Per-session input text storage (module-level so it survives remounts)
 const drafts = new Map<string, string>()
@@ -270,6 +271,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       const merged = mergeReviewComments(reviewComments(), message.comments)
       replaceReviewComments(merged)
       if (message.autoSend && empty && !isDisabled() && !props.blocked?.()) {
+        vscode.postMessage({
+          type: "telemetry",
+          event: TelemetryEventName.REVIEW_COMMENT_ACTION,
+          properties: {
+            action: "auto_sent_to_chat",
+            surface: message.source ?? "unknown",
+            count: message.comments.length,
+          },
+        })
         handleSend()
       } else {
         textareaRef?.focus()

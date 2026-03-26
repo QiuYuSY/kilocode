@@ -30,6 +30,7 @@ interface AnnotationHandlers {
   addComment: (file: string, side: AnnotationSide, line: number, text: string, selectedText: string) => void
   updateComment: (id: string, text: string) => void
   deleteComment: (id: string) => void
+  sendComment: (comment: ReviewComment) => void
   cancelDraft: () => void
   labels: AnnotationLabels
 }
@@ -251,12 +252,7 @@ export function buildReviewAnnotation(
 
   actions.appendChild(
     makeActionButton(handlers.labels.sendToChat, makeIcon("M1 1l14 7-14 7V9l10-1L1 7z"), () => {
-      window.dispatchEvent(
-        new MessageEvent("message", {
-          data: { type: "appendReviewComments", comments: [comment], autoSend: true },
-        }),
-      )
-      handlers.deleteComment(comment.id)
+      handlers.sendComment(comment)
     }),
   )
 

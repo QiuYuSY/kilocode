@@ -98,6 +98,7 @@ export const DiffPanelWithDiffs: Story = {
           onDiffStyleChange={() => {}}
           comments={[]}
           onCommentsChange={() => {}}
+          onSendAll={() => {}}
           onClose={() => {}}
           onExpand={() => {}}
         />
@@ -122,6 +123,7 @@ export const FullScreenDiffWithChanges: Story = {
           onDiffStyleChange={() => {}}
           comments={[]}
           onCommentsChange={() => {}}
+          onSendAll={() => {}}
           onClose={() => {}}
         />
       </div>

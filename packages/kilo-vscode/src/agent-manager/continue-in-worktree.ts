@@ -101,7 +101,21 @@ export function registerSession(
   ctx.registerWorktreeSession(session.id, result.path)
   ctx.registerSession(session)
   ctx.notifyReady(session.id, result, worktreeId)
-  ctx.capture("Continue in Worktree", { source: PLATFORM, sessionId: session.id, worktreeId })
+  ctx.capture("Agent Manager Action", {
+    source: PLATFORM,
+    action: "continue_session",
+    origin: "sidebar_session",
+    status: "success",
+    sessionId: session.id,
+    worktreeId,
+  })
+  ctx.capture("Agent Manager Session Started", {
+    source: PLATFORM,
+    action: "continue_session",
+    origin: "sidebar_session",
+    sessionId: session.id,
+    worktreeId,
+  })
   ctx.log(`Continued sidebar session ${sourceId} → worktree ${worktreeId} (session ${session.id})`)
 }
 
@@ -120,19 +134,59 @@ export async function continueInWorktree(
 
   progress("capturing", "Capturing git changes...")
   const captured = await captureState(ctx)
-  if (!captured.ok) return progress("error", undefined, captured.error)
+  if (!captured.ok) {
+    ctx.capture("Agent Manager Session Error", {
+      source: PLATFORM,
+      context: "continueInWorktree",
+      action: "continue_session",
+      origin: "sidebar_session",
+      step: "capture",
+      error: captured.error,
+    })
+    return progress("error", undefined, captured.error)
+  }
 
   progress("creating", "Creating worktree...")
   const prepared = await prepareWorktree(ctx, captured.value.branch)
-  if (!prepared.ok) return progress("error", undefined, prepared.error)
+  if (!prepared.ok) {
+    ctx.capture("Agent Manager Session Error", {
+      source: PLATFORM,
+      context: "continueInWorktree",
+      action: "continue_session",
+      origin: "sidebar_session",
+      step: "create_worktree",
+      error: prepared.error,
+    })
+    return progress("error", undefined, prepared.error)
+  }
 
   progress("transferring", "Transferring changes...")
   const transferred = await transferState(ctx, captured.value, prepared.value.result.path)
-  if (!transferred.ok) return progress("error", undefined, transferred.error)
+  if (!transferred.ok) {
+    ctx.capture("Agent Manager Session Error", {
+      source: PLATFORM,
+      context: "continueInWorktree",
+      action: "continue_session",
+      origin: "sidebar_session",
+      step: "transfer",
+      error: transferred.error,
+    })
+    return progress("error", undefined, transferred.error)
+  }
 
   progress("forking", "Starting session...")
   const forked = await forkSession(ctx, sessionId, prepared.value.result.path)
-  if (!forked.ok) return progress("error", undefined, forked.error)
+  if (!forked.ok) {
+    ctx.capture("Agent Manager Session Error", {
+      source: PLATFORM,
+      context: "continueInWorktree",
+      action: "continue_session",
+      origin: "sidebar_session",
+      step: "fork",
+      error: forked.error,
+    })
+    return progress("error", undefined, forked.error)
+  }
 
   registerSession(ctx, forked.value, prepared.value.result, prepared.value.worktreeId, sessionId)
   progress("done")

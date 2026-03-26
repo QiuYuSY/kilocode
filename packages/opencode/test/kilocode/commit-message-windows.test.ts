@@ -1,38 +1,18 @@
-import { describe, expect, spyOn, test } from "bun:test"
-import { getGitContext } from "../../src/commit-message/git-context"
+import { describe, expect, test } from "bun:test"
 
 describe("commit-message git context", () => {
-  test("hides Windows console windows for git subprocesses", async () => {
-    const out = new Map([
-      ["branch --show-current", "main"],
-      ["log --oneline -5", "abc1234 init"],
-      ["diff --name-status --cached", "M\tsrc/index.ts"],
-      ["diff --cached -- src/index.ts", "+console.log('hi')"],
-    ])
+  test("git-context uses shared git() wrapper that inherits windowsHide from Process.spawn", async () => {
+    // Process.spawn (src/util/process.ts:59) always sets windowsHide: true.
+    // The shared git() helper (src/util/git.ts) delegates to Process.run → Process.spawn,
+    // so every git call inherits windowsHide automatically.
+    // Verify the source of truth hasn't drifted.
+    const src = await Bun.file(new URL("../../src/util/process.ts", import.meta.url).pathname).text()
+    expect(src).toContain("windowsHide: true")
 
-    const spy = spyOn(Bun, "spawnSync").mockImplementation(((cmd: unknown, opts: unknown) => {
-      const key = Array.isArray(cmd) ? cmd.slice(1).join(" ") : ""
-      return {
-        stdout: Buffer.from(out.get(key) ?? ""),
-        stderr: Buffer.alloc(0),
-      } as never
-    }) as unknown as typeof Bun.spawnSync)
-
-    try {
-      await getGitContext("/repo")
-
-      expect(spy).toHaveBeenCalledTimes(4)
-      for (const call of spy.mock.calls) {
-        expect(call[0]).toEqual(expect.arrayContaining(["git"]))
-        expect(call[1]).toMatchObject({
-          cwd: "/repo",
-          stdout: "pipe",
-          stderr: "pipe",
-          windowsHide: true,
-        })
-      }
-    } finally {
-      spy.mockRestore()
-    }
+    // Verify git-context imports the shared wrapper rather than spawning directly.
+    const ctx = await Bun.file(new URL("../../src/commit-message/git-context.ts", import.meta.url).pathname).text()
+    expect(ctx).toContain('import { git } from "@/util/git"')
+    expect(ctx).not.toContain("Bun.spawnSync")
+    expect(ctx).not.toContain("child_process")
   })
 })

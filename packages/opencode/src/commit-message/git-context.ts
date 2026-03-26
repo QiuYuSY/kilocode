@@ -1,4 +1,5 @@
 import type { GitContext, FileChange } from "./types"
+import { git } from "@/util/git"
 
 const LOCK_FILES = new Set([
   // --- JavaScript / Node.js ---
@@ -128,14 +129,9 @@ function isLockFile(filepath: string): boolean {
   return LOCK_FILES.has(name)
 }
 
-function git(args: string[], cwd: string): string {
-  const result = Bun.spawnSync(["git", ...args], {
-    cwd,
-    stdout: "pipe",
-    stderr: "pipe",
-    windowsHide: true, // kilocode_change - prevent cmd.exe flash on Windows
-  })
-  return result.stdout.toString().trimEnd()
+async function run(args: string[], cwd: string): Promise<string> {
+  const result = await git(args, { cwd })
+  return result.text().trimEnd()
 }
 
 function parseNameStatus(output: string): Array<{ status: string; path: string }> {
@@ -178,16 +174,16 @@ function isUntracked(code: string): boolean {
 }
 
 export async function getGitContext(repoPath: string, selectedFiles?: string[]): Promise<GitContext> {
-  const branch = git(["branch", "--show-current"], repoPath) || "HEAD"
-  const log = git(["log", "--oneline", "-5"], repoPath)
+  const branch = (await run(["branch", "--show-current"], repoPath)) || "HEAD"
+  const log = await run(["log", "--oneline", "-5"], repoPath)
   const recentCommits = log ? log.split("\n") : []
 
   // Check staged files first
-  const staged = parseNameStatus(git(["diff", "--name-status", "--cached"], repoPath))
+  const staged = parseNameStatus(await run(["diff", "--name-status", "--cached"], repoPath))
   const useStaged = staged.length > 0
 
   // Fall back to all changes if nothing staged
-  const raw = useStaged ? staged : parsePorcelain(git(["status", "--porcelain"], repoPath))
+  const raw = useStaged ? staged : parsePorcelain(await run(["status", "--porcelain"], repoPath))
 
   const selected = selectedFiles ? new Set(selectedFiles) : undefined
 
@@ -204,12 +200,12 @@ export async function getGitContext(repoPath: string, selectedFiles?: string[]):
       diff = `New untracked file: ${entry.path}`
     } else if (status === "deleted") {
       diff = useStaged
-        ? git(["diff", "--cached", "--", entry.path], repoPath)
-        : git(["diff", "--", entry.path], repoPath)
+        ? await run(["diff", "--cached", "--", entry.path], repoPath)
+        : await run(["diff", "--", entry.path], repoPath)
     } else {
       const raw = useStaged
-        ? git(["diff", "--cached", "--", entry.path], repoPath)
-        : git(["diff", "--", entry.path], repoPath)
+        ? await run(["diff", "--cached", "--", entry.path], repoPath)
+        : await run(["diff", "--", entry.path], repoPath)
 
       // Detect binary files
       if (raw.includes("Binary files") || raw.includes("GIT binary patch")) {

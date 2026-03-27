@@ -169,6 +169,8 @@ import type {
   SessionStatusResponses,
   SessionSummarizeErrors,
   SessionSummarizeResponses,
+  SessionSystemPromptErrors,
+  SessionSystemPromptResponses,
   SessionTodoErrors,
   SessionTodoResponses,
   SessionUnrevertErrors,
@@ -1657,6 +1659,38 @@ export class Session2 extends HeyApiClient {
     )
     return (options?.client ?? this.client).get<SessionTodoResponses, SessionTodoErrors, ThrowOnError>({
       url: "/session/{sessionID}/todo",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get system prompt
+   *
+   * Assemble and return the current system prompt for a session, including source metadata showing what instruction files, prompts, and environment context contribute to the final prompt.
+   */
+  public systemPrompt<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionSystemPromptResponses, SessionSystemPromptErrors, ThrowOnError>({
+      url: "/session/{sessionID}/system-prompt",
       ...options,
       ...params,
     })

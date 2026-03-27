@@ -1319,6 +1319,7 @@ export type ExtensionMessage =
   | LanguageChangedMessage
   | ContinueInWorktreeProgressMessage
   | WorktreeStatsLoadedMessage
+  | SystemPromptLoadedMessage
 
 // ============================================
 // Messages FROM webview TO extension
@@ -1942,6 +1943,24 @@ export interface RequestRecentsMessage {
   type: "requestRecents"
 }
 
+// System prompt inspection
+export interface SystemPromptSource {
+  name: string
+  content: string
+  path?: string
+}
+
+export interface SystemPromptLoadedMessage {
+  type: "systemPromptLoaded"
+  system: string[]
+  sources: SystemPromptSource[]
+}
+
+export interface RequestSystemPromptMessage {
+  type: "requestSystemPrompt"
+  sessionID: string
+}
+
 // Continue in Worktree: transfer sidebar session + git state to an isolated worktree
 export interface ContinueInWorktreeRequest {
   type: "continueInWorktree"
@@ -2079,6 +2098,7 @@ export type WebviewMessage =
   | FetchCustomProviderModelsMessage
   | PersistRecentsRequest
   | RequestRecentsMessage
+  | RequestSystemPromptMessage
   | ContinueInWorktreeRequest
 
 // ============================================

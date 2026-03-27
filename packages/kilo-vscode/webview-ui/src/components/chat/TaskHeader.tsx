@@ -1,7 +1,7 @@
 /**
  * TaskHeader component
  * Sticky header above the chat messages showing session title,
- * cost, context usage, and a compact button.
+ * cost, context usage, a system prompt button, and a compact button.
  * Also shows todo progress when the session has todos.
  */
 
@@ -12,6 +12,7 @@ import { Icon } from "@kilocode/kilo-ui/icon"
 import { Checkbox } from "@kilocode/kilo-ui/checkbox"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
+import { SystemPromptView } from "./SystemPromptView"
 import type { TodoItem } from "../../types/messages"
 
 interface TaskHeaderProps {
@@ -59,6 +60,7 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
   })
 
   const [todosOpen, setTodosOpen] = createSignal(false)
+  const [promptOpen, setPromptOpen] = createSignal(false)
 
   return (
     <Show when={hasMessages()}>
@@ -85,6 +87,16 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
             )}
           </Show>
           <Show when={!props.readonly}>
+            <Tooltip value={language.t("context.systemPrompt.title")} placement="bottom">
+              <IconButton
+                icon="glasses"
+                size="small"
+                variant="ghost"
+                disabled={!hasMessages()}
+                onClick={() => setPromptOpen((v) => !v)}
+                aria-label={language.t("context.systemPrompt.title")}
+              />
+            </Tooltip>
             <Tooltip value={language.t("command.session.compact")} placement="bottom">
               <IconButton
                 icon="compress"
@@ -98,6 +110,9 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
           </Show>
         </div>
       </div>
+      <Show when={promptOpen()}>
+        <SystemPromptView onClose={() => setPromptOpen(false)} />
+      </Show>
       <Show when={hasTodos()}>
         <div data-component="task-header-todos">
           <button

@@ -16,6 +16,8 @@ import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { SystemPrompt } from "../../session/system" // kilocode_change
+import { Provider } from "@/provider/provider" // kilocode_change
 
 const log = Log.create({ service: "server" })
 
@@ -182,6 +184,63 @@ export const SessionRoutes = lazy(() =>
         return c.json(todos)
       },
     )
+    // kilocode_change start
+    .get(
+      "/:sessionID/system-prompt",
+      describeRoute({
+        summary: "Get system prompt",
+        description:
+          "Assemble and return the current system prompt for a session, including source metadata showing what instruction files, prompts, and environment context contribute to the final prompt.",
+        operationId: "session.system_prompt",
+        responses: {
+          200: {
+            description: "System prompt with source metadata",
+            content: {
+              "application/json": {
+                schema: resolver(SystemPrompt.Inspect),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+
+        // Find the last user message to determine model + agent
+        let providerID: string | undefined
+        let modelID: string | undefined
+        let agentName: string | undefined
+        let editorContext: any | undefined
+
+        for await (const item of MessageV2.stream(sessionID)) {
+          if (item.info.role === "user") {
+            const user = item.info as MessageV2.User
+            providerID = user.model?.providerID
+            modelID = user.model?.modelID
+            agentName = user.agent
+            editorContext = user.editorContext
+            break
+          }
+        }
+
+        // Fall back to default model if no messages exist
+        const fallback = providerID && modelID ? { providerID, modelID } : await Provider.defaultModel()
+        const model = await Provider.getModel(fallback.providerID, fallback.modelID)
+
+        const agent = agentName ? await Agent.get(agentName) : undefined
+
+        const result = await SystemPrompt.inspect(model, agent, editorContext)
+        return c.json(result)
+      },
+    )
+    // kilocode_change end
     .post(
       "/",
       describeRoute({

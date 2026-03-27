@@ -809,6 +809,11 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           this.postMessage({ type: "recentsLoaded", recents })
           break
         }
+        case "requestSystemPrompt":
+          this.fetchAndSendSystemPrompt(message.sessionID).catch((e) =>
+            console.error("[Kilo New] fetchAndSendSystemPrompt failed:", e),
+          )
+          break
         // legacy-migration start
         case "requestLegacyMigrationData":
           void handleRequestLegacyMigrationData(this.migrationCtx)
@@ -1497,6 +1502,21 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       this.postMessage(message)
     } catch (error) {
       console.error("[Kilo New] KiloProvider: Failed to fetch agents:", error)
+    }
+  }
+
+  private async fetchAndSendSystemPrompt(sessionID: string): Promise<void> {
+    if (!this.client) return
+
+    try {
+      const { data } = await this.client.session.systemPrompt({ sessionID }, { throwOnError: true })
+      this.postMessage({
+        type: "systemPromptLoaded",
+        system: data.system,
+        sources: data.sources,
+      })
+    } catch (error) {
+      console.error("[Kilo New] KiloProvider: Failed to fetch system prompt:", error)
     }
   }
 

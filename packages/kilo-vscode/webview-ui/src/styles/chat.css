@@ -4,6 +4,118 @@
  */
 
 /* ============================================
+   System Prompt View
+   ============================================ */
+
+[data-component="system-prompt-view"] {
+  border-bottom: 1px solid var(--border-weak-base);
+  background-color: var(--background-base);
+  flex-shrink: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+
+  [data-slot="system-prompt-header"] {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    border-bottom: 1px solid var(--border-weak-base);
+    position: sticky;
+    top: 0;
+    background-color: var(--background-base);
+    z-index: 1;
+  }
+
+  [data-slot="system-prompt-title"] {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-base);
+  }
+
+  [data-slot="system-prompt-actions"] {
+    display: flex;
+    gap: 2px;
+  }
+
+  [data-slot="system-prompt-loading"] {
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  [data-slot="system-prompt-sources"] {
+    display: flex;
+    flex-direction: column;
+  }
+
+  [data-slot="system-prompt-section"] {
+    border-bottom: 1px solid var(--border-weak-base);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  [data-slot="system-prompt-section-header"] {
+    all: unset;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--text-weak);
+    box-sizing: border-box;
+
+    &:hover {
+      color: var(--text-base);
+      background-color: var(--background-alt);
+    }
+  }
+
+  [data-slot="system-prompt-section-arrow"] {
+    transition: transform 0.15s ease;
+    transform: rotate(-90deg);
+    flex-shrink: 0;
+
+    &[data-open] {
+      transform: rotate(0deg);
+    }
+  }
+
+  [data-slot="system-prompt-section-name"] {
+    font-weight: 500;
+    color: var(--text-base);
+  }
+
+  [data-slot="system-prompt-section-path"] {
+    font-size: 11px;
+    color: var(--text-weak);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+    text-align: left;
+    flex: 1;
+    min-width: 0;
+  }
+
+  [data-slot="system-prompt-section-content"] {
+    margin: 0;
+    padding: 8px 16px 12px;
+    font-size: 11px;
+    font-family: var(--font-mono, monospace);
+    line-height: 1.5;
+    color: var(--text-base);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background-color: var(--background-alt);
+    border-top: 1px solid var(--border-weak-base);
+  }
+}
+
+/* ============================================
    Task Header Todos
    ============================================ */
 

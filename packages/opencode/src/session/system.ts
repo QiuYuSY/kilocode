@@ -15,6 +15,8 @@ import type { Provider } from "@/provider/provider"
 // kilocode_change start
 import SOUL from "../kilocode/soul.txt"
 import { staticEnvLines, type EditorContext } from "../kilocode/editor-context"
+import { InstructionPrompt } from "./instruction"
+import z from "zod"
 // kilocode_change end
 
 export namespace SystemPrompt {
@@ -85,4 +87,63 @@ export namespace SystemPrompt {
       ].join("\n"),
     ]
   }
+
+  // kilocode_change start
+  export const Source = z.object({
+    name: z.string(),
+    content: z.string(),
+    path: z.string().optional(),
+  })
+  export type Source = z.infer<typeof Source>
+
+  export const Inspect = z.object({
+    system: z.array(z.string()),
+    sources: z.array(Source),
+  })
+  export type Inspect = z.infer<typeof Inspect>
+
+  /**
+   * Assemble the full system prompt with source metadata.
+   * Mirrors the assembly in LLM.stream() + SessionPrompt.loop()
+   * but collects provenance info for each section.
+   */
+  export async function inspect(model: Provider.Model, agent?: { prompt?: string }, editorContext?: EditorContext) {
+    const sources: Source[] = []
+
+    // 1. Soul / identity
+    const soulText = soul()
+    sources.push({ name: "soul", content: soulText })
+
+    // 2. Provider prompt (or agent prompt override)
+    const providerTexts = agent?.prompt ? [agent.prompt] : provider(model)
+    const promptName = agent?.prompt ? "agent" : `provider:${model.prompt ?? model.api.id}`
+    for (const text of providerTexts) {
+      sources.push({ name: promptName, content: text })
+    }
+
+    // 3. Environment block
+    const envTexts = await environment(model, editorContext)
+    for (const text of envTexts) {
+      sources.push({ name: "environment", content: text })
+    }
+
+    // 4. Instruction files (AGENTS.md, etc.)
+    const instructions = await InstructionPrompt.system()
+    for (const text of instructions) {
+      // InstructionPrompt.system() prefixes each with "Instructions from: <path>\n"
+      const match = text.match(/^Instructions from: (.+)\n/)
+      const filepath = match?.[1]
+      const name = filepath ? `instruction:${filepath.split("/").pop()}` : "instruction"
+      sources.push({ name, content: text, path: filepath })
+    }
+
+    // Assemble the same way LLM.stream() does:
+    // system[0] = soul + provider/agent prompt (concatenated)
+    // Then environment + instructions are separate segments
+    const header = [soulText, ...providerTexts].filter(Boolean).join("\n")
+    const system = [header, ...envTexts, ...instructions]
+
+    return { system, sources }
+  }
+  // kilocode_change end
 }

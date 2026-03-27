@@ -3166,6 +3166,50 @@ export type SessionTodoResponses = {
 
 export type SessionTodoResponse = SessionTodoResponses[keyof SessionTodoResponses]
 
+export type SessionSystemPromptData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/system-prompt"
+}
+
+export type SessionSystemPromptErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionSystemPromptError = SessionSystemPromptErrors[keyof SessionSystemPromptErrors]
+
+export type SessionSystemPromptResponses = {
+  /**
+   * System prompt with source metadata
+   */
+  200: {
+    system: Array<string>
+    sources: Array<{
+      name: string
+      content: string
+      path?: string
+    }>
+  }
+}
+
+export type SessionSystemPromptResponse = SessionSystemPromptResponses[keyof SessionSystemPromptResponses]
+
 export type SessionInitData = {
   body?: {
     modelID: string

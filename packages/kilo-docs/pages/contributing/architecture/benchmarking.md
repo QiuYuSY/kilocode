@@ -166,7 +166,7 @@ Creating a custom Harbor task set is straightforward. Each task consists of:
 
 This makes it easy to create task sets that target specific Kilo Code capabilities -- for example, a set of refactoring tasks, or a set of multi-file debugging scenarios. Custom sets can be published to the Harbor registry or kept private.
 
-See the [Harbor task tutorial](https://www.tbench.ai/docs/task-tutorial) for a step-by-step guide.
+See the [Harbor task tutorial](https://tbench.ai/docs/task-tutorial) for a step-by-step guide.
 
 ## Deliverables
 
@@ -302,5 +302,5 @@ This benchmarking system is complementary to, but separate from, the [Agent Obse
 - [Terminal-Bench 2.0 Paper](https://huggingface.co/papers/2601.11868)
 - [ATIF Specification (RFC)](https://github.com/laude-institute/harbor/blob/main/docs/rfcs/0001-trajectory-format.md)
 - [Opik Harbor Integration](https://www.comet.com/docs/opik/integrations/harbor)
-- [tbench.ai Dashboard](https://www.tbench.ai/docs/dashboard)
-- [Harbor Task Tutorial](https://www.tbench.ai/docs/task-tutorial)
+- [tbench.ai Dashboard](https://tbench.ai/docs/dashboard)
+- [Harbor Task Tutorial](https://tbench.ai/docs/task-tutorial)

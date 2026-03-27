@@ -40,6 +40,7 @@ const KiloLogo = (): JSX.Element => {
 interface MessageListProps {
   onSelectSession?: (id: string) => void
   onShowHistory?: () => void
+  timelineHover?: boolean
 }
 
 export const MessageList: Component<MessageListProps> = (props) => {
@@ -153,6 +154,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
                     sessionID={session.currentSessionID() ?? ""}
                     messageID={msg.id}
                     queued={queued()}
+                    timelineHover={props.timelineHover}
                   />
                 )
               }}

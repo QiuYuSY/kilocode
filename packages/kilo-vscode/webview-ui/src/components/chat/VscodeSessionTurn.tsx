@@ -28,9 +28,12 @@ import type {
   FileDiff,
 } from "@kilocode/sdk/v2"
 import { ErrorDisplay } from "./ErrorDisplay"
+import { GutterBar } from "./GutterBar"
 import { useServer } from "../../context/server"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
+import { classify } from "../../utils/timeline/colors"
+import type { Part as WebviewPart } from "../../types/messages"
 
 function getDirectory(path: string): string {
   const sep = path.includes("/") ? "/" : "\\"
@@ -48,6 +51,7 @@ interface VscodeSessionTurnProps {
   sessionID: string
   messageID: string
   queued?: boolean
+  timelineHover?: boolean
 }
 
 export const VscodeSessionTurn: Component<VscodeSessionTurnProps> = (props) => {
@@ -148,10 +152,30 @@ export const VscodeSessionTurn: Component<VscodeSessionTurnProps> = (props) => {
     return undefined
   })
 
+  // Determine the turn's timeline color from the first renderable part of the user message
+  const turnColor = createMemo(() => {
+    const msgParts = session.getParts(props.messageID) as WebviewPart[]
+    for (const p of msgParts) {
+      const c = classify(p, "user")
+      if (c) return c
+    }
+    // Fallback: check assistant parts
+    const assistants = assistantMessages()
+    for (const am of assistants) {
+      const aParts = session.getParts(am.id) as WebviewPart[]
+      for (const p of aParts) {
+        const c = classify(p, "assistant")
+        if (c) return c
+      }
+    }
+    return "user" as const
+  })
+
   return (
     <Show when={message()}>
       {(msg) => (
         <div class="vscode-session-turn" data-message={msg().id}>
+          <GutterBar color={turnColor()} visible={!!props.timelineHover} />
           {/* User message */}
           <div
             class="vscode-session-turn-user"

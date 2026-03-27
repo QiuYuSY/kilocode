@@ -122,12 +122,19 @@ export const ChatView: Component<ChatViewProps> = (props) => {
     session.respondToPermission(perm.id, response, approvedAlways, deniedAlways)
   }
 
+  // Timeline hover signal — passed to TaskHeader (sets it) and MessageList (reads it for gutter bars)
+  const [timelineHover, setTimelineHover] = createSignal(false)
+
   return (
     <div class="chat-view">
-      <TaskHeader readonly={props.readonly} />
+      <TaskHeader readonly={props.readonly} onTimelineHover={setTimelineHover} />
       <div class="chat-messages-wrapper">
         <div class="chat-messages">
-          <MessageList onSelectSession={props.onSelectSession} onShowHistory={props.onShowHistory} />
+          <MessageList
+            onSelectSession={props.onSelectSession}
+            onShowHistory={props.onShowHistory}
+            timelineHover={timelineHover()}
+          />
         </div>
       </div>
 

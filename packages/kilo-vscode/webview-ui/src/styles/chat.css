@@ -4,6 +4,178 @@
  */
 
 /* ============================================
+   Task Timeline
+   Matches legacy KiloTaskHeader → TaskTimeline → TaskTimelineMessage exactly.
+   Outer: overflow:hidden clips scrollbar. Inner: overflow-x:auto, taller to push scrollbar out of view.
+   Each bar: relative container with absolute-positioned colored fill anchored at bottom.
+   ============================================ */
+
+[data-component="task-timeline"] {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+[data-slot="task-timeline-scroller"] {
+  display: flex;
+  flex-direction: row;
+  height: 51px; /* 26 + 25 to hide scrollbar */
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: none;
+  cursor: grab;
+  width: 100%;
+}
+
+[data-slot="task-timeline-scroller"]:active {
+  cursor: grabbing;
+}
+
+/* Legacy: mr-0.5 relative overflow-hidden, inline width+height */
+[data-slot="timeline-bar"] {
+  position: relative;
+  overflow: hidden;
+  margin-right: 2px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+[data-slot="timeline-bar"]:hover [data-slot="timeline-bar-inner"] {
+  opacity: 0.7;
+}
+
+/* Legacy: absolute bottom-0 left-0 right-0 rounded-t-xs transition-all duration-200 */
+[data-slot="timeline-bar-inner"] {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: 1px 1px 0 0;
+  transition: all 0.2s;
+}
+
+@keyframes timeline-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+[data-slot="timeline-bar-inner"][data-active] {
+  animation: timeline-pulse 2s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+/* ============================================
+   Context Progress Bar
+   ============================================ */
+
+[data-component="context-progress"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  white-space: nowrap;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+[data-slot="context-progress-label"] {
+  font-variant-numeric: tabular-nums;
+}
+
+[data-slot="context-progress-track"] {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  display: flex;
+  background: color-mix(in srgb, var(--vscode-foreground) 20%, transparent);
+}
+
+[data-slot="context-progress-used"] {
+  height: 100%;
+  background: color-mix(in srgb, var(--vscode-foreground) 50%, transparent);
+  transition: width 0.3s ease-out;
+}
+
+[data-slot="context-progress-used"][data-warning] {
+  background: color-mix(in srgb, var(--vscode-errorForeground) 70%, transparent);
+}
+
+[data-slot="context-progress-reserved"] {
+  height: 100%;
+  background: color-mix(in srgb, var(--vscode-foreground) 30%, transparent);
+  transition: width 0.3s ease-out;
+}
+
+/* ============================================
+   Task Header Expand Toggle
+   ============================================ */
+
+[data-slot="task-header-expand"] {
+  transition: transform 0.2s;
+}
+
+[data-slot="task-header-expand"][data-expanded] {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   Token Breakdown
+   ============================================ */
+
+[data-slot="task-header-tokens"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+[data-slot="token-in"] {
+  color: var(--vscode-textLink-foreground);
+}
+
+[data-slot="token-out"] {
+  color: var(--vscode-descriptionForeground);
+}
+
+[data-slot="token-cache"] {
+  opacity: 0.7;
+}
+
+/* ============================================
+   Gutter Bar
+   ============================================ */
+
+[data-slot="gutter-bar"] {
+  position: absolute;
+  width: 4px;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: 2px;
+}
+
+[data-slot="gutter-bar"][data-visible] {
+  opacity: 0.7;
+}
+
+/* ============================================
    Task Header Todos
    ============================================ */
 
@@ -2505,6 +2677,7 @@ body.vscode-light
   width: 100%;
   min-width: 0;
   padding: 0 4px;
+  position: relative;
 }
 
 .vscode-session-turn + .vscode-session-turn {

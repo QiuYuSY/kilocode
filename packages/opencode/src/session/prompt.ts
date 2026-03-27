@@ -78,6 +78,12 @@ export namespace SessionPrompt {
 
   const log = Log.create({ service: "session.prompt" })
 
+  // kilocode_change — persist environment details across loop() invocations so that
+  // older user messages keep their envBlock across turns, preserving the byte-identical
+  // conversation prefix for Anthropic prompt caching.
+  // Key: "sessionID:messageID" → rendered envBlock string.
+  const envCache = new Map<string, string>()
+
   const state = Instance.state(
     () => {
       const data: Record<
@@ -289,6 +295,10 @@ export namespace SessionPrompt {
     }
     match.abort.abort()
     delete s[sessionID]
+    // kilocode_change — clean up envCache entries for this session
+    for (const k of envCache.keys()) {
+      if (k.startsWith(sessionID + ":")) envCache.delete(k)
+    }
     SessionStatus.set(sessionID, { type: "idle" })
     return
   }
@@ -323,14 +333,6 @@ export namespace SessionPrompt {
     // Note: On session resumption, state is reset but outputFormat is preserved
     // on the user message and will be retrieved from lastUser below
     let structuredOutput: unknown | undefined
-
-    // kilocode_change — cache environment details per user message so that
-    // older user messages keep their envBlock across turns, preserving the
-    // byte-identical conversation prefix for Anthropic prompt caching.
-    // Without this, the envBlock would only be on the *last* user message,
-    // causing earlier user messages to lose theirs on new turns and breaking
-    // the prefix match (everything after that point shifts).
-    const envCache = new Map<string, string>()
 
     let step = 0
     const session = await Session.get(sessionID)
@@ -705,16 +707,17 @@ export namespace SessionPrompt {
 
       // kilocode_change start — ephemerally inject dynamic editor context into user messages.
       // Each user message's envBlock is computed once (when it becomes the last user message)
-      // and preserved in subsequent turns so the conversation prefix stays byte-identical
-      // for Anthropic prompt caching. Previously, only the *last* user message received the
-      // envBlock, causing earlier user messages to lose theirs on new turns and invalidating
-      // the cached prefix at that position.
-      if (!envCache.has(lastUser.id)) {
-        envCache.set(lastUser.id, environmentDetails(lastUser.editorContext))
+      // and preserved across loop() calls via the module-level envCache so the conversation
+      // prefix stays byte-identical for Anthropic prompt caching. Previously, only the *last*
+      // user message received the envBlock, causing earlier user messages to lose theirs on
+      // new turns and invalidating the cached prefix at that position.
+      const key = `${sessionID}:${lastUser.id}`
+      if (!envCache.has(key)) {
+        envCache.set(key, environmentDetails(lastUser.editorContext))
       }
       for (let i = 0; i < msgs.length; i++) {
         if (msgs[i].info.role !== "user") continue
-        const env = envCache.get(msgs[i].info.id)
+        const env = envCache.get(`${sessionID}:${msgs[i].info.id}`)
         if (!env) continue
         msgs[i] = {
           ...msgs[i],

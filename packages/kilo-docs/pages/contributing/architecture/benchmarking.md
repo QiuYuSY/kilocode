@@ -45,7 +45,7 @@ Today we have no structured way to answer these questions. Manual testing is not
 
 **Non-goals:**
 
-- Production monitoring (covered by [Agent Observability](/docs/contributing/architecture/agent-observability))
+- Production monitoring -- covered by [Agent Observability](/docs/contributing/architecture/agent-observability)
 - Automated remediation based on benchmark results
 
 ## Architecture

@@ -360,6 +360,12 @@ export const SessionProvider: ParentComponent = (props) => {
   }
 
   function selectModel(providerID: string, modelID: string) {
+    // If the session is in a retry backoff loop, abort it so the user can
+    // re-send with the newly selected model instead of waiting indefinitely.
+    const sid = currentSessionID()
+    if (sid && statusMap[sid]?.type === "retry") {
+      vscode.postMessage({ type: "abort", sessionID: sid })
+    }
     applyModel(selectedAgentName(), { providerID, modelID })
   }
 

@@ -79,7 +79,7 @@ export const ChatView: Component<ChatViewProps> = (props) => {
   onMount(() => {
     if (props.readonly) return
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && session.status() === "busy" && !e.defaultPrevented) {
+      if (e.key === "Escape" && (session.status() === "busy" || session.status() === "retry") && !e.defaultPrevented) {
         e.preventDefault()
         session.abort()
       }

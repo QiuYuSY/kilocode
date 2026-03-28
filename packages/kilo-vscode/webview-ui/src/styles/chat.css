@@ -2317,6 +2317,14 @@ body.vscode-light
   flex-direction: column;
 }
 
+/* Session List (inside History View) */
+.session-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
 /* Cloud Session List (inside History View) */
 .cloud-session-list {
   display: flex;

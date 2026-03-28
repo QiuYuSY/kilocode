@@ -1146,7 +1146,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.env": "Miljø",
   "settings.agentBehaviour.mcpDetail.disabled": "Denne server er deaktiveret.",
   "settings.agentBehaviour.mcpEmpty":
-    "Ingen MCP-servere konfigureret. Rediger opencode-konfigurationsfilen for at tilføje MCP-servere.",
+    "Ingen MCP-servere konfigureret. Rediger kilo.jsonc-filen eller bed agenten om at tilføje en MCP-server.",
   "settings.agentBehaviour.workflowsPlaceholder": "Workflows administreres via workflow-filer i dit arbejdsområde.",
   "settings.agentBehaviour.workflows.description":
     "Workflows er brugerdefinerede slash-kommandoer defineret i din konfiguration. Skriv /command-name i chatten for at aktivere dem. Kommandoer konfigureres i opencode.json under sektionen 'command'.",

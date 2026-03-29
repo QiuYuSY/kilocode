@@ -5,19 +5,14 @@ export function createSession(id: string, item: LegacyHistoryItem | undefined, p
   const session = makeSession()
 
   session.id = id
-
   session.projectID = projectID
-
   session.slug = id
 
   session.directory = item?.workspace ?? ""
-
   session.title = item?.task ?? id
-
   session.version = "v2"
 
   session.timeCreated = item?.ts ?? 0
-
   session.timeUpdated = item?.ts ?? 0
 
   return session

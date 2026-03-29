@@ -5,13 +5,10 @@ export function createProject(item?: LegacyHistoryItem): NonNullable<Project["bo
   const project = makeProject()
 
   project.id = item?.workspace ?? ""
-
   project.worktree = item?.workspace ?? ""
-
   project.sandboxes = item?.workspace ? [item.workspace] : []
 
   project.timeCreated = item?.ts ?? 0
-
   project.timeUpdated = item?.ts ?? 0
 
   return project

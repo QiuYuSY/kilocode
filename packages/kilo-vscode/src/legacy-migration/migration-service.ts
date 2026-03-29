@@ -68,6 +68,7 @@ export async function detectLegacyData(context: vscode.ExtensionContext): Promis
   const mcpSettings = await readLegacyMcpSettings(context)
   const customModes = await readLegacyCustomModes(context)
   const settings = readLegacySettings(context)
+  const sessions = await readSessionsInGlobalStorage(context)
 
   const oauthProviders = new Set<string>()
   const codexRaw = await context.secrets.get(CODEX_OAUTH_SECRET_KEY)
@@ -92,16 +93,32 @@ export async function detectLegacyData(context: vscode.ExtensionContext): Promis
     Boolean(settings.language) ||
     Boolean(settings.autocomplete)
 
-  const hasData = providers.length > 0 || mcpServers.length > 0 || modes.length > 0 || hasSettings
+  const hasData =
+    providers.length > 0 ||
+    mcpServers.length > 0 ||
+    modes.length > 0 ||
+    hasSettings ||
+    sessions.length > 0
 
   return {
     providers,
     mcpServers,
     customModes: modes,
+    sessions: sessions.length > 0 ? sessions : undefined,
     defaultModel,
     settings: hasSettings ? settings : undefined,
     hasData,
   }
+}
+
+async function readSessionsInGlobalStorage(context: vscode.ExtensionContext) {
+  const dir = vscode.Uri.joinPath(context.globalStorageUri, "tasks")
+  const kind = (vscode as { FileType?: { Directory?: number } }).FileType?.Directory ?? 2
+  const items = await vscode.workspace.fs.readDirectory(dir).then(
+    (items) => items,
+    () => [] as [string, vscode.FileType][],
+  )
+  return items.filter(([, type]) => type === kind).map(([name]) => name)
 }
 
 // ---------------------------------------------------------------------------

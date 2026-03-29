@@ -288,6 +288,7 @@ export interface LegacyMigrationData {
   providers: MigrationProviderInfo[]
   mcpServers: MigrationMcpServerInfo[]
   customModes: MigrationCustomModeInfo[]
+  sessions?: string[]
   defaultModel?: { provider: string; model: string }
   settings?: LegacySettings
   hasData: boolean

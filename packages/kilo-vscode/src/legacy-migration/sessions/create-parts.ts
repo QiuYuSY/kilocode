@@ -4,6 +4,8 @@ import { getApiConversationHistory, parseFile } from "./api-history"
 import { createMessageID, createPartID, createSessionID } from "./ids"
 import { createReasoningPart, createSimpleTextPart, createTextPartWithinMessage, createToolUsePart } from "./create-parts-builders"
 import {
+  getReasoningText,
+  isProviderSpecificReasoningPart,
   isReasoningPart,
   isSimpleTextPart,
   isSingleTextPartWithinMessage,
@@ -60,6 +62,14 @@ function parseParts(
 
     if (isReasoningPart(entry)) {
       parts.push(createReasoningPart(partID, messageID, sessionID, created, entry.text))
+      return
+    }
+
+    // Some providers store thinking outside normal content blocks, so this handles those provider-specific fields.
+    if (isProviderSpecificReasoningPart(entry)) {
+      const reasoning = getReasoningText(entry)
+      if (!reasoning) return
+      parts.push(createReasoningPart(partID, messageID, sessionID, created, reasoning))
     }
   })
 

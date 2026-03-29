@@ -15,6 +15,32 @@ export function isReasoningPart(input: LegacyApiMessage): input is LegacyApiMess
   return input.type === "reasoning" && typeof input.text === "string" && Boolean(input.text)
 }
 
+export function isProviderSpecificReasoningPart(input: LegacyApiMessage) {
+  return Boolean(getReasoningText(input))
+}
+
+export function getReasoningText(input: LegacyApiMessage) {
+  if (typeof input.reasoning_content === "string" && input.reasoning_content.trim()) {
+    // Some providers store the model thinking outside normal content blocks, so we need to lift it manually.
+    return input.reasoning_content.trim()
+  }
+
+  if (!Array.isArray(input.reasoning_details)) return undefined
+
+  const text = input.reasoning_details
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return []
+      if (typeof (item as { text?: unknown }).text === "string") return [(item as { text: string }).text]
+      if (typeof (item as { reasoning?: unknown }).reasoning === "string") return [(item as { reasoning: string }).reasoning]
+      return []
+    })
+    .join("\n")
+    .trim()
+
+  // reasoning_details can come as provider-specific arrays, so we collapse the readable text we can find.
+  return text || undefined
+}
+
 export function isSingleTextPartWithinMessage(input: unknown): input is { type?: string; text: string } {
   return isText(input) && Boolean(input.text)
 }

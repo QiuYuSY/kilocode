@@ -50,9 +50,8 @@ export function mergeToolUseAndResult(
   }
 }
 
-export function thereIsNoToolResult(entry: LegacyApiMessage, id: string | undefined) {
-  if (!Array.isArray(entry.content)) return true
-  return !entry.content.some((part) => isToolResult(part) && part.tool_use_id === id)
+export function thereIsNoToolResult(conversation: LegacyApiMessage[], id: string | undefined) {
+  return !conversation.some((entry) => Array.isArray(entry.content) && entry.content.some((part) => isToolResult(part) && part.tool_use_id === id))
 }
 
 function getToolUseFromConversation(conversation: LegacyApiMessage[], id: string | undefined) {

@@ -41,6 +41,18 @@ function parseParts(
 
   const parts: Array<NonNullable<Part["body"]>> = []
 
+  if (isReasoningPart(entry)) {
+    parts.push(createReasoningPart(createPartID(id, index, 0), messageID, sessionID, created, entry.text))
+  }
+
+  // Some providers store thinking outside normal content blocks, so this handles those provider-specific fields.
+  if (isProviderSpecificReasoningPart(entry)) {
+    const reasoning = getReasoningText(entry)
+    if (reasoning) {
+      parts.push(createReasoningPart(createPartID(id, index, 1), messageID, sessionID, created, reasoning))
+    }
+  }
+
   entry.content.forEach((part, partIndex) => {
     const partID = createPartID(id, index, partIndex)
 
@@ -58,7 +70,7 @@ function parseParts(
       return
     }
 
-    if (isToolUse(part) && thereIsNoToolResult(entry, part.id)) {
+    if (isToolUse(part) && thereIsNoToolResult(conversation, part.id)) {
       parts.push(createToolUsePart(partID, messageID, sessionID, created, part))
       return
     }
@@ -72,17 +84,6 @@ function parseParts(
       return
     }
 
-    if (isReasoningPart(entry)) {
-      parts.push(createReasoningPart(partID, messageID, sessionID, created, entry.text))
-      return
-    }
-
-    // Some providers store thinking outside normal content blocks, so this handles those provider-specific fields.
-    if (isProviderSpecificReasoningPart(entry)) {
-      const reasoning = getReasoningText(entry)
-      if (!reasoning) return
-      parts.push(createReasoningPart(partID, messageID, sessionID, created, reasoning))
-    }
   })
 
   return parts

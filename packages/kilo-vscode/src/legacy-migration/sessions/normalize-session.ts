@@ -17,20 +17,12 @@ export interface NormalizedSession {
   parts: Array<NonNullable<Part["body"]>>
 }
 
-export async function normalizeSession(input: {
-  id: string
-  dir: string
-  item?: LegacyHistoryItem
-}): Promise<NormalizedSession> {
-  const project = createProject({ item: input.item })
+export async function normalizeSession(id: string, dir: string, item?: LegacyHistoryItem): Promise<NormalizedSession> {
+  const project = createProject(item)
 
   return {
     project,
-    session: createSession({
-      id: input.id,
-      item: input.item,
-      projectID: project.id,
-    }),
+    session: createSession(id, item, project.id),
     messages: createMessages(),
     parts: createParts(),
   }

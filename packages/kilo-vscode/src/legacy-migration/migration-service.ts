@@ -32,7 +32,7 @@ import type {
   MigrationCustomModeInfo,
   MigrationResultItem,
 } from "./legacy-types"
-import { migrateSession } from "./session-migration-service"
+import { migrateSession } from "./sessions/migrate-session"
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -218,11 +218,7 @@ export async function migrate(
   if (selections.sessions?.length) {
     for (const id of selections.sessions) {
       onProgress(id, "migrating")
-      const result = await migrateSession({
-        id,
-        context,
-        client,
-      })
+      const result = await migrateSession(id, context, client)
       results.push({
         item: id,
         category: "session",

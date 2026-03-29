@@ -5,6 +5,10 @@ import type {
   KilocodeSessionImportProjectData as Project,
   KilocodeSessionImportSessionData as Session,
 } from "@kilocode/sdk/v2"
+import { createMessages } from "./create-messages"
+import { createParts } from "./create-parts"
+import { createProject } from "./create-project"
+import { createSession } from "./create-session"
 
 export interface NormalizedSession {
   project: NonNullable<Project["body"]>
@@ -13,10 +17,15 @@ export interface NormalizedSession {
   parts: Array<NonNullable<Part["body"]>>
 }
 
-export async function normalizeSession(_input: {
+export async function normalizeSession(input: {
   id: string
   dir: string
   item?: LegacyHistoryItem
 }): Promise<NormalizedSession> {
-  throw new Error("normalizeSession is not implemented yet")
+  return {
+    project: createProject({ item: input.item }),
+    session: createSession(),
+    messages: createMessages(),
+    parts: createParts(),
+  }
 }

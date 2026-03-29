@@ -19,12 +19,14 @@ export interface NormalizedSession {
 
 export async function normalizeSession(id: string, dir: string, item?: LegacyHistoryItem): Promise<NormalizedSession> {
   const project = createProject(item)
+  const session = createSession(id, item, project.id)
   const messages = await createMessages(id, dir, item)
+  const parts = await createParts(id, dir, item)
 
   return {
     project,
-    session: createSession(id, item, project.id),
+    session,
     messages,
-    parts: createParts(),
+    parts,
   }
 }

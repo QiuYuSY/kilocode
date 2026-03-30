@@ -37,7 +37,7 @@ describe("file.ripgrep", () => {
     expect(hasHidden).toBe(false)
   })
 
-  // kilocode_change start - .kilo directory should also be skipped in tree()
+  // kilocode_change start - .kilo and .opencode directories should be skipped in tree()
   test("tree skips .kilo directory files", async () => {
     await using tmp = await tmpdir({
       init: async (dir) => {
@@ -49,6 +49,37 @@ describe("file.ripgrep", () => {
 
     const result = await Ripgrep.tree({ cwd: tmp.path })
     expect(result).not.toContain(".kilo")
+    expect(result).toContain("src")
+  })
+
+  test("tree skips .opencode directory files", async () => {
+    await using tmp = await tmpdir({
+      init: async (dir) => {
+        await Bun.write(path.join(dir, "src", "main.ts"), "export {}")
+        await fs.mkdir(path.join(dir, ".opencode"), { recursive: true })
+        await Bun.write(path.join(dir, ".opencode", "state.json"), "{}")
+      },
+    })
+
+    const result = await Ripgrep.tree({ cwd: tmp.path })
+    expect(result).not.toContain(".opencode")
+    expect(result).toContain("src")
+  })
+
+  test("tree skips both .kilo and .opencode directories", async () => {
+    await using tmp = await tmpdir({
+      init: async (dir) => {
+        await Bun.write(path.join(dir, "src", "main.ts"), "export {}")
+        await fs.mkdir(path.join(dir, ".kilo"), { recursive: true })
+        await Bun.write(path.join(dir, ".kilo", "config.json"), "{}")
+        await fs.mkdir(path.join(dir, ".opencode"), { recursive: true })
+        await Bun.write(path.join(dir, ".opencode", "state.json"), "{}")
+      },
+    })
+
+    const result = await Ripgrep.tree({ cwd: tmp.path })
+    expect(result).not.toContain(".kilo")
+    expect(result).not.toContain(".opencode")
     expect(result).toContain("src")
   })
   // kilocode_change end

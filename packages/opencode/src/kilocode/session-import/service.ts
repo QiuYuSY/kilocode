@@ -8,6 +8,12 @@ const key = (input: unknown) => [input] as never
 
 export namespace SessionImportService {
   export async function project(input: SessionImportType.Project): Promise<SessionImportType.Result> {
+    // Do not resolve an empty legacy worktree, because that would fall back to the current
+    // process directory and silently attach the migrated session to the wrong project.
+    if (!input.worktree.trim()) {
+      throw new Error("Legacy project import requires a non-empty worktree")
+    }
+
     const result = await Project.fromDirectory(input.worktree)
     return { ok: true, id: result.project.id }
   }

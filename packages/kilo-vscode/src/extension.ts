@@ -60,11 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
   // The terminal intercepts all keystrokes unless the command is listed in
   // terminal.integrated.commandsToSkipShell, which only contains built-in
   // commands by default.
-  ensureCommandsSkipShell([
-    "kilo-code.new.agentManagerOpen",
-    "kilo-code.new.agentManagerOpenShortcut",
-    "kilo-code.new.agentManager.showTerminal",
-  ])
+  ensureCommandsSkipShell(["kilo-code.new.agentManagerOpen", "kilo-code.new.agentManager.showTerminal"])
 
   // Create Agent Manager provider for editor panel
   const agentManagerHost = new VscodeHost(context.extensionUri, connectionService, context)
@@ -162,13 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
       provider.postMessage({ type: "action", action: "plusButtonClicked" })
     }),
     vscode.commands.registerCommand("kilo-code.new.agentManagerOpen", () => {
-      agentManagerProvider.openPanel("command")
-    }),
-    vscode.commands.registerCommand("kilo-code.new.agentManagerOpenSidebar", () => {
-      agentManagerProvider.openPanel("sidebar_title_button")
-    }),
-    vscode.commands.registerCommand("kilo-code.new.agentManagerOpenShortcut", () => {
-      agentManagerProvider.openPanel("keyboard_shortcut")
+      agentManagerProvider.openPanel()
     }),
     vscode.commands.registerCommand("kilo-code.new.marketplaceButtonClicked", () => {
       settingsEditorProvider.openPanel("marketplace")

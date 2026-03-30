@@ -109,7 +109,7 @@ export class AgentManagerProvider implements Disposable {
     })
   }
 
-  public openPanel(entry = "command"): void {
+  public openPanel(entry?: string): void {
     const open = !!this.panel
     if (this.panel) {
       this.log("Panel already open, revealing")
@@ -124,7 +124,7 @@ export class AgentManagerProvider implements Disposable {
       )
     }
     void this.waitForStateReady("openPanel").then(() =>
-      this.capture("Agent Manager Opened", { entry, alreadyOpen: open }),
+      this.capture("Agent Manager Opened", { ...(entry ? { entry } : {}), alreadyOpen: open }),
     )
   }
 

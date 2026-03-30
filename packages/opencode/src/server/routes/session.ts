@@ -16,6 +16,8 @@ import { Log } from "../../util/log"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Bus } from "../../bus" // kilocode_change
+import { NamedError } from "@opencode-ai/util/error" // kilocode_change
 
 const log = Log.create({ service: "server" })
 
@@ -795,7 +797,19 @@ export const SessionRoutes = lazy(() =>
         return stream(c, async () => {
           const sessionID = c.req.valid("param").sessionID
           const body = c.req.valid("json")
-          SessionPrompt.prompt({ ...body, sessionID })
+          void SessionPrompt.prompt({ ...body, sessionID }).catch((error) => {
+            const message = error instanceof Error ? error.message : String(error)
+            // kilocode_change start - surface async prompt failures to SSE/webview chat
+            Bus.publish(Session.Event.Error, {
+              sessionID,
+              error: new NamedError.Unknown({ message }).toObject(),
+            })
+            // kilocode_change end
+            log.error("prompt_async failed", {
+              sessionID,
+              error: message,
+            })
+          })
         })
       },
     )

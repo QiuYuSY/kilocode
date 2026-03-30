@@ -38,6 +38,7 @@ import { SessionSummary } from "./summary"
 import { NamedError } from "@opencode-ai/util/error"
 import { fn } from "@/util/fn"
 import { SessionProcessor } from "./processor"
+import { defaultAgent as kiloDefaultAgent } from "../kilocode/default-agent" // kilocode_change
 import { TaskTool } from "@/tool/task"
 import { Tool } from "@/tool/tool"
 import { PermissionNext } from "@/permission/next"
@@ -1955,7 +1956,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         ]
       : [...templateParts, ...(input.parts ?? [])]
 
-    const userAgent = isSubtask ? (input.agent ?? (await Agent.defaultAgent())) : agentName
+    const userAgent = isSubtask ? (input.agent ?? (await kiloDefaultAgent(input.sessionID))) : agentName // kilocode_change
     const userModel = isSubtask
       ? input.model
         ? Provider.parseModel(input.model)

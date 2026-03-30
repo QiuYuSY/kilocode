@@ -1,8 +1,6 @@
-import { Component, createMemo, Switch, Match } from "solid-js"
-import { Card } from "@kilocode/kilo-ui/card"
-import { Collapsible } from "@kilocode/kilo-ui/collapsible"
-import { ErrorDetails } from "@kilocode/kilo-ui/error-details"
+import { Component, createMemo, Switch, Match, createSignal, Show } from "solid-js"
 import { Button } from "@kilocode/kilo-ui/button"
+import { ErrorDetails } from "@kilocode/kilo-ui/error-details"
 import type { AssistantMessage } from "@kilocode/sdk/v2"
 import { useLanguage } from "../../context/language"
 import {
@@ -20,6 +18,7 @@ interface ErrorDisplayProps {
 export const ErrorDisplay: Component<ErrorDisplayProps> = (props) => {
   const { t } = useLanguage()
   const parsed = createMemo(() => parseAssistantError(props.error))
+  const [expanded, setExpanded] = createSignal(false)
 
   const errorText = createMemo(() => {
     const msg = props.error.data?.message
@@ -31,18 +30,32 @@ export const ErrorDisplay: Component<ErrorDisplayProps> = (props) => {
   return (
     <Switch
       fallback={
-        <Card variant="error" class="error-card">
-          {errorText()}
-          <Collapsible variant="ghost">
-            <Collapsible.Trigger class="error-details-trigger">
-              <span>{t("error.details.show")}</span>
-              <Collapsible.Arrow />
-            </Collapsible.Trigger>
-            <Collapsible.Content>
+        <div class="startup-error-banner error-inline-banner">
+          <div
+            class="startup-error-header"
+            onClick={() => setExpanded((v) => !v)}
+            role="button"
+            aria-expanded={expanded()}
+          >
+            <span class="startup-error-title">
+              Error: <span class="startup-error-firstline">{errorText()}</span>
+            </span>
+            <button
+              class="startup-error-retry"
+              onClick={(e) => {
+                e.stopPropagation()
+                setExpanded((v) => !v)
+              }}
+            >
+              {t("error.details.show")}
+            </button>
+          </div>
+          <Show when={expanded()}>
+            <div class="error-inline-details">
               <ErrorDetails error={props.error} />
-            </Collapsible.Content>
-          </Collapsible>
-        </Card>
+            </div>
+          </Show>
+        </div>
       }
     >
       <Match when={isUnauthorizedPaidModelError(parsed())}>

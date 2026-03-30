@@ -2565,6 +2565,10 @@ body.vscode-light
   width: 100%;
 }
 
+.vscode-session-turn-assistant[data-standalone] {
+  padding-block: 2px;
+}
+
 .vscode-session-turn-diffs {
   width: 100%;
 }
@@ -2963,6 +2967,20 @@ body.vscode-light
 /* ============================================
    Auth Prompt (sign in / sign up error displays)
    ============================================ */
+
+.error-inline-banner {
+  margin: 0;
+}
+
+.error-inline-banner .startup-error-header {
+  align-items: flex-start;
+}
+
+.error-inline-details {
+  padding: 8px 10px;
+  border-top: 1px solid var(--vscode-inputValidation-errorBorder, #f14c4c);
+  background: var(--vscode-editor-background);
+}
 
 [data-component="auth-prompt"] {
   display: flex;

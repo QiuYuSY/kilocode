@@ -109,6 +109,7 @@ export const VscodeSessionTurn: Component<VscodeSessionTurnProps> = (props) => {
   const error = createMemo(
     () => assistantMessages().find((m) => m.error && m.error.name !== "MessageAbortedError")?.error,
   )
+  const revertable = createMemo(() => assistantMessages().length > 0 && !error())
 
   // Diffs from message summary
   const diffs = createMemo(() => {
@@ -178,7 +179,7 @@ export const VscodeSessionTurn: Component<VscodeSessionTurnProps> = (props) => {
                   interrupted={interrupted()}
                   queued={props.queued}
                   onRevert={
-                    assistantMessages().length > 0 && !session.revert()
+                    revertable() && !session.revert()
                       ? () => {
                           if (session.status() !== "idle") return
                           session.revertSession(props.messageID)
@@ -192,7 +193,7 @@ export const VscodeSessionTurn: Component<VscodeSessionTurnProps> = (props) => {
 
           {/* Assistant parts — flat list, no context grouping */}
           <Show when={assistantMessages().length > 0}>
-            <div class="vscode-session-turn-assistant">
+            <div class="vscode-session-turn-assistant" data-standalone={message() ? undefined : ""}>
               <For each={assistantMessages()}>
                 {(msg) => <AssistantMessage message={msg} showAssistantCopyPartID={showAssistantCopyPartID()} />}
               </For>

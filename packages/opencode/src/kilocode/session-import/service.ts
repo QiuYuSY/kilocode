@@ -1,49 +1,15 @@
-import { Database, eq } from "../../storage/db"
+import { Database } from "../../storage/db"
 import { ProjectTable } from "../../project/project.sql"
 import { SessionTable, MessageTable, PartTable } from "../../session/session.sql"
 import { SessionImportType } from "./types"
+import { Project } from "../../project/project"
 
 const key = (input: unknown) => [input] as never
 
 export namespace SessionImportService {
   export async function project(input: SessionImportType.Project): Promise<SessionImportType.Result> {
-    // If this worktree already has a project in kilo.db, reuse that project's id so migrated
-    // sessions end up attached to the same project as sessions created later by normal Kilo flows.
-    const row = Database.use((db) => db.select().from(ProjectTable).where(eq(ProjectTable.worktree, input.worktree)).get())
-    const id = row?.id ?? input.id
-
-    Database.use((db) => {
-      db.insert(ProjectTable)
-        .values({
-          id,
-          worktree: input.worktree,
-          vcs: input.vcs,
-          name: input.name,
-          icon_url: input.iconUrl,
-          icon_color: input.iconColor,
-          time_created: input.timeCreated,
-          time_updated: input.timeUpdated,
-          time_initialized: input.timeInitialized,
-          sandboxes: input.sandboxes,
-          commands: input.commands,
-        })
-        .onConflictDoUpdate({
-          target: key(ProjectTable.id),
-          set: {
-            worktree: input.worktree,
-            vcs: input.vcs,
-            name: input.name,
-            icon_url: input.iconUrl,
-            icon_color: input.iconColor,
-            time_updated: input.timeUpdated,
-            time_initialized: input.timeInitialized,
-            sandboxes: input.sandboxes,
-            commands: input.commands,
-          },
-        })
-        .run()
-    })
-    return { ok: true, id }
+    const result = await Project.fromDirectory(input.worktree)
+    return { ok: true, id: result.project.id }
   }
 
   export async function session(input: SessionImportType.Session): Promise<SessionImportType.Result> {

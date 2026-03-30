@@ -267,6 +267,7 @@ export const dict = {
   "mcp.status.connected": "已连接",
   "mcp.status.failed": "失败",
   "mcp.status.needs_auth": "需要授权",
+  "mcp.status.needs_registration": "需要客户端注册",
   "mcp.status.disabled": "已禁用",
 
   "dialog.fork.empty": "没有可用于分叉的消息",
@@ -1125,7 +1126,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.args": "参数",
   "settings.agentBehaviour.mcpDetail.env": "环境",
   "settings.agentBehaviour.mcpDetail.disabled": "此服务器已禁用。",
-  "settings.agentBehaviour.mcpEmpty": "未配置 MCP 服务器。编辑 opencode 配置文件以添加 MCP 服务器。",
+  "settings.agentBehaviour.mcpEmpty": "未配置 MCP 服务器。在 kilo.jsonc 中添加 MCP 服务器，或让代理为您添加。",
   "settings.agentBehaviour.workflowsPlaceholder": "工作流通过工作区中的工作流文件管理。",
   "settings.agentBehaviour.workflows.description":
     "工作流是在配置中定义的自定义斜杠命令。在聊天中输入 /command-name 来调用它们。命令在 opencode.json 的 'command' 部分中配置。",

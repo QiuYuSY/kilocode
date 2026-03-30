@@ -266,6 +266,7 @@ export const dict = {
   "mcp.status.connected": "接続済み",
   "mcp.status.failed": "失敗",
   "mcp.status.needs_auth": "認証が必要",
+  "mcp.status.needs_registration": "クライアント登録が必要",
   "mcp.status.disabled": "無効",
 
   "dialog.fork.empty": "フォーク元のメッセージがありません",
@@ -1151,7 +1152,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.env": "環境",
   "settings.agentBehaviour.mcpDetail.disabled": "このサーバーは無効です。",
   "settings.agentBehaviour.mcpEmpty":
-    "MCPサーバーが設定されていません。opencode設定ファイルを編集してMCPサーバーを追加してください。",
+    "MCPサーバーが設定されていません。kilo.jsoncでMCPサーバーを追加するか、エージェントに追加を依頼してください。",
   "settings.agentBehaviour.workflowsPlaceholder":
     "ワークフローはワークスペース内のワークフローファイルを通じて管理されます。",
   "settings.agentBehaviour.workflows.description":

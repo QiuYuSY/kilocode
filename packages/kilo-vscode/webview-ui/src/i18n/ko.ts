@@ -270,6 +270,7 @@ export const dict = {
   "mcp.status.connected": "연결됨",
   "mcp.status.failed": "실패",
   "mcp.status.needs_auth": "인증 필요",
+  "mcp.status.needs_registration": "클라이언트 등록 필요",
   "mcp.status.disabled": "비활성화됨",
 
   "dialog.fork.empty": "분기할 메시지 없음",
@@ -1145,7 +1146,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.env": "환경",
   "settings.agentBehaviour.mcpDetail.disabled": "이 서버는 비활성화되어 있습니다.",
   "settings.agentBehaviour.mcpEmpty":
-    "MCP 서버가 구성되지 않았습니다. opencode 구성 파일을 편집하여 MCP 서버를 추가하세요.",
+    "MCP 서버가 구성되지 않았습니다. kilo.jsonc에서 MCP 서버를 추가하거나 에이전트에게 추가를 요청하세요.",
   "settings.agentBehaviour.workflowsPlaceholder": "워크플로우는 워크스페이스의 워크플로우 파일을 통해 관리됩니다.",
   "settings.agentBehaviour.workflows.description":
     "워크플로우는 구성에서 정의된 사용자 정의 슬래시 명령입니다. 채팅에서 /command-name을 입력하여 실행합니다. 명령은 opencode.json의 'command' 섹션에서 구성됩니다.",

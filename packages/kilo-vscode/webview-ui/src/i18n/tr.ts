@@ -267,6 +267,7 @@ export const dict = {
   "mcp.status.connected": "bağlı",
   "mcp.status.failed": "başarısız",
   "mcp.status.needs_auth": "kimlik doğrulama gerekli",
+  "mcp.status.needs_registration": "istemci kaydı gerekli",
   "mcp.status.disabled": "devre dışı",
 
   "dialog.fork.empty": "Dallandırılacak mesaj yok",
@@ -1135,7 +1136,7 @@ export const dict = {
   "settings.agentBehaviour.addMcp.url": "Sunucu URL'si",
   "settings.agentBehaviour.addMcp.url.placeholder": "e.g. http://localhost:3000/sse",
   "settings.agentBehaviour.mcpEmpty":
-    "Yapılandırılmış MCP sunucusu yok. MCP sunucuları eklemek için opencode yapılandırma dosyasını düzenleyin.",
+    "Yapılandırılmış MCP sunucusu yok. kilo.jsonc dosyasına MCP sunucuları ekleyin veya ajanın eklemesini isteyin.",
   "settings.agentBehaviour.workflowsPlaceholder": "İş akışları çalışma alanınızdaki iş akışı dosyaları ile yönetilir.",
   "settings.agentBehaviour.workflows.description":
     "İş akışları, yapılandırmanızda tanımlanan özel eğik çizgi komutlarıdır. Çağırmak için sohbette /command-name yazın. Komutlar opencode.json dosyasındaki 'command' bölümünde yapılandırılır.",

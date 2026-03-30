@@ -113,6 +113,8 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private cachedCommandsMessage: unknown = null
   /** Cached configLoaded payload so requestConfig can be served before client is ready */
   private cachedConfigMessage: unknown = null
+  /** Cached mcpStatusLoaded payload so requestMcpStatus can be served before client is ready */
+  private cachedMcpStatusMessage: unknown = null
   /** Ref-count of in-flight handleUpdateConfig calls; prevents fetchAndSendConfig from sending stale data */
   private pending = 0
   /** Cached notificationsLoaded payload */
@@ -141,6 +143,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
   private unsubscribeNotificationDismiss: (() => void) | null = null
   private unsubscribeLanguageChange: (() => void) | null = null
   private unsubscribeProfileChange: (() => void) | null = null
+  private unsubscribeMigrationComplete: (() => void) | null = null // legacy-migration
   private initConnectionPromise: Promise<void> | null = null
   private webviewMessageDisposable: vscode.Disposable | null = null
 
@@ -282,11 +285,13 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     }
 
     // legacy-migration start
-    // Only show the migration wizard once the CLI connection is established so the
-    // webview has finished loading providers/agents before we navigate to the wizard.
-    if (reason === "webviewReady" && this.connectionState === "connected") {
-      void checkAndShowMigrationWizard(this.migrationCtx)
-    } else if (reason === "sse-connected") {
+    // Show the migration wizard once the CLI connection is established.
+    // Three triggers cover all timing scenarios:
+    //   "webviewReady" + connected — webview loaded after SSE was already up
+    //   "sse-connected"            — SSE connected after webview was ready
+    //   "initializeConnection"     — sidebar path where connect() resolves before
+    //                                onStateChange is subscribed, so sse-connected never fires
+    if (this.connectionState === "connected") {
       void checkAndShowMigrationWizard(this.migrationCtx)
     }
     // legacy-migration end
@@ -641,6 +646,17 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
           break
         case "removeMcp":
           this.handleRemoveMcp(message.name).catch((e) => console.error("[Kilo New] handleRemoveMcp failed:", e))
+          break
+        case "requestMcpStatus":
+          this.fetchAndSendMcpStatus().catch((e) => console.error("[Kilo New] fetchAndSendMcpStatus failed:", e))
+          break
+        case "connectMcp":
+          this.handleConnectMcp(message.name).catch((e) => console.error("[Kilo New] handleConnectMcp failed:", e))
+          break
+        case "disconnectMcp":
+          this.handleDisconnectMcp(message.name).catch((e) =>
+            console.error("[Kilo New] handleDisconnectMcp failed:", e),
+          )
           break
 
         case "questionReply":
@@ -999,6 +1015,13 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       this.unsubscribeProfileChange = this.connectionService.onProfileChanged((data) => {
         this.postMessage({ type: "profileData", data })
       })
+
+      // legacy-migration start
+      // Subscribe to migration-complete broadcast from any KiloProvider instance
+      this.unsubscribeMigrationComplete = this.connectionService.onMigrationComplete(() => {
+        this.postMessage({ type: "migrationState", needed: false })
+      })
+      // legacy-migration end
 
       // Get current state and push to webview
       const serverInfo = this.connectionService.getServerInfo()
@@ -1672,6 +1695,51 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
       await this.fetchAndSendConfig()
     } else {
       console.error("[Kilo New] KiloProvider: Failed to remove MCP server:", name)
+    }
+  }
+
+  private async fetchAndSendMcpStatus(): Promise<void> {
+    if (!this.client) {
+      if (this.cachedMcpStatusMessage) {
+        this.postMessage(this.cachedMcpStatusMessage)
+      }
+      return
+    }
+
+    try {
+      const directory = this.getWorkspaceDirectory()
+      const { data } = await this.client.mcp.status({ directory })
+      if (data) {
+        const message = { type: "mcpStatusLoaded", status: data }
+        this.cachedMcpStatusMessage = message
+        this.postMessage(message)
+      }
+    } catch (error) {
+      console.error("[Kilo New] KiloProvider: Failed to fetch MCP status:", error)
+    }
+  }
+
+  private async handleConnectMcp(name: string): Promise<void> {
+    if (!this.client) return
+    try {
+      const directory = this.getWorkspaceDirectory()
+      await this.client.mcp.connect({ name, directory })
+      await this.fetchAndSendMcpStatus()
+    } catch (error) {
+      console.error("[Kilo New] KiloProvider: Failed to connect MCP:", name, error)
+      await this.fetchAndSendMcpStatus()
+    }
+  }
+
+  private async handleDisconnectMcp(name: string): Promise<void> {
+    if (!this.client) return
+    try {
+      const directory = this.getWorkspaceDirectory()
+      await this.client.mcp.disconnect({ name, directory })
+      await this.fetchAndSendMcpStatus()
+    } catch (error) {
+      console.error("[Kilo New] KiloProvider: Failed to disconnect MCP:", name, error)
+      await this.fetchAndSendMcpStatus()
     }
   }
 
@@ -2730,6 +2798,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
         self.migrationCheckInFlight = val
       },
       disposeGlobal: () => this.disposeGlobal(),
+      broadcastComplete: () => this.connectionService.notifyMigrationComplete(),
     }
   }
 
@@ -2778,6 +2847,7 @@ export class KiloProvider implements vscode.WebviewViewProvider, TelemetryProper
     this.unsubscribeNotificationDismiss?.()
     this.unsubscribeLanguageChange?.()
     this.unsubscribeProfileChange?.()
+    this.unsubscribeMigrationComplete?.()
     this.webviewMessageDisposable?.dispose()
     this.trackedSessionIds.clear()
     this.syncedChildSessions.clear()

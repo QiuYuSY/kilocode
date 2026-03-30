@@ -268,6 +268,7 @@ export const dict = {
   "mcp.status.connected": "verbonden",
   "mcp.status.failed": "mislukt",
   "mcp.status.needs_auth": "authenticatie vereist",
+  "mcp.status.needs_registration": "clientregistratie vereist",
   "mcp.status.disabled": "uitgeschakeld",
 
   "dialog.fork.empty": "Geen berichten om van af te splitsen",
@@ -1139,7 +1140,7 @@ export const dict = {
   "settings.agentBehaviour.addMcp.url": "Server-URL",
   "settings.agentBehaviour.addMcp.url.placeholder": "e.g. http://localhost:3000/sse",
   "settings.agentBehaviour.mcpEmpty":
-    "Geen MCP-servers geconfigureerd. Bewerk het opencode configuratiebestand om MCP-servers toe te voegen.",
+    "Geen MCP-servers geconfigureerd. Voeg MCP-servers toe in kilo.jsonc of vraag de agent om ze toe te voegen.",
   "settings.agentBehaviour.workflowsPlaceholder": "Workflows worden beheerd via workflowbestanden in je workspace.",
   "settings.agentBehaviour.workflows.description":
     "Workflows zijn aangepaste slash-commando's gedefinieerd in je configuratie. Typ /command-name in de chat om ze aan te roepen. Commando's worden geconfigureerd in opencode.json onder de sectie 'command'.",

@@ -266,6 +266,7 @@ export const dict = {
   "mcp.status.connected": "متصل",
   "mcp.status.failed": "فشل",
   "mcp.status.needs_auth": "يحتاج إلى مصادقة",
+  "mcp.status.needs_registration": "يحتاج إلى تسجيل العميل",
   "mcp.status.disabled": "معطل",
 
   "dialog.fork.empty": "لا توجد رسائل للتفرع منها",
@@ -1139,7 +1140,8 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.args": "الوسائط",
   "settings.agentBehaviour.mcpDetail.env": "البيئة",
   "settings.agentBehaviour.mcpDetail.disabled": "هذا الخادم معطّل.",
-  "settings.agentBehaviour.mcpEmpty": "لم يتم تهيئة خوادم MCP. قم بتحرير ملف تهيئة opencode لإضافة خوادم MCP.",
+  "settings.agentBehaviour.mcpEmpty":
+    "لم يتم تهيئة خوادم MCP. أضف خوادم MCP في kilo.jsonc، أو اطلب من الوكيل إضافتها لك.",
   "settings.agentBehaviour.workflowsPlaceholder": "تُدار سير العمل عبر ملفات سير العمل في مساحة العمل.",
   "settings.agentBehaviour.workflows.description":
     "سير العمل هي أوامر شرطة مائلة مخصصة محددة في التهيئة الخاصة بك. اكتب /command-name في الدردشة لتشغيلها. يتم تهيئة الأوامر في opencode.json ضمن قسم 'command'.",

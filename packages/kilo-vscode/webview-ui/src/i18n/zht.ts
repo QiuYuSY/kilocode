@@ -267,6 +267,7 @@ export const dict = {
   "mcp.status.connected": "已連線",
   "mcp.status.failed": "失敗",
   "mcp.status.needs_auth": "需要授權",
+  "mcp.status.needs_registration": "需要客戶端註冊",
   "mcp.status.disabled": "已停用",
 
   "dialog.fork.empty": "沒有可用於分支的訊息",
@@ -1128,7 +1129,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.args": "引數",
   "settings.agentBehaviour.mcpDetail.env": "環境",
   "settings.agentBehaviour.mcpDetail.disabled": "此伺服器已停用。",
-  "settings.agentBehaviour.mcpEmpty": "未設定 MCP 伺服器。編輯 opencode 設定檔以新增 MCP 伺服器。",
+  "settings.agentBehaviour.mcpEmpty": "未設定 MCP 伺服器。在 kilo.jsonc 中新增 MCP 伺服器，或請代理為您新增。",
   "settings.agentBehaviour.workflowsPlaceholder": "工作流程透過工作區中的工作流程檔案管理。",
   "settings.agentBehaviour.workflows.description":
     "工作流程是在設定中定義的自訂斜線命令。在聊天中輸入 /command-name 來呼叫它們。命令在 opencode.json 的 'command' 區段中設定。",

@@ -266,6 +266,7 @@ export const dict = {
   "mcp.status.connected": "conectado",
   "mcp.status.failed": "falhou",
   "mcp.status.needs_auth": "precisa de autenticação",
+  "mcp.status.needs_registration": "precisa de registro do cliente",
   "mcp.status.disabled": "desabilitado",
 
   "dialog.fork.empty": "Nenhuma mensagem para bifurcar",
@@ -1161,7 +1162,7 @@ export const dict = {
   "settings.agentBehaviour.mcpDetail.env": "Ambiente",
   "settings.agentBehaviour.mcpDetail.disabled": "Este servidor está desativado.",
   "settings.agentBehaviour.mcpEmpty":
-    "Nenhum servidor MCP configurado. Edite o arquivo de configuração do opencode para adicionar servidores MCP.",
+    "Nenhum servidor MCP configurado. Adicione servidores MCP em kilo.jsonc ou peça ao agente para adicioná-los.",
   "settings.agentBehaviour.workflowsPlaceholder":
     "Fluxos de trabalho são gerenciados por arquivos de fluxo de trabalho no espaço de trabalho.",
   "settings.agentBehaviour.workflows.description":

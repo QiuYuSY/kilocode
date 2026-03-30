@@ -652,6 +652,7 @@ export const SessionProvider: ParentComponent = (props) => {
           if (message.error?.name === "MessageAbortedError") break
           const sid = message.sessionID ?? currentSessionID()
           if (!sid) break
+          if (sid === currentSessionID()) setLoading(false)
           // Find the last user message in this session to use as parentID
           const msgs = store.messages[sid] ?? []
           const parent = [...msgs].reverse().find((m) => m.role === "user")

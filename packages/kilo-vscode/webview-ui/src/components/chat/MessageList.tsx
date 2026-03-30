@@ -72,7 +72,14 @@ export const MessageList: Component<MessageListProps> = (props) => {
     if (!b) return allUserMessages()
     return allUserMessages().filter((m) => m.id < b)
   })
-  const isEmpty = () => userMessages().length === 0 && !session.loading() && !boundary()
+  const assistantErrors = createMemo(() =>
+    session
+      .messages()
+      .filter((m) => m.role === "assistant" && !!m.error && !m.parentID)
+      .map((m) => m.id),
+  )
+  const isEmpty = () =>
+    userMessages().length === 0 && assistantErrors().length === 0 && !session.loading() && !boundary()
 
   const recent = createMemo(() =>
     [...session.sessions()]
@@ -156,6 +163,9 @@ export const MessageList: Component<MessageListProps> = (props) => {
                   />
                 )
               }}
+            </For>
+            <For each={assistantErrors()}>
+              {(id) => <VscodeSessionTurn sessionID={session.currentSessionID() ?? ""} messageID={id} queued={false} />}
             </For>
             <Show when={boundary()}>
               <RevertBanner />

@@ -308,6 +308,13 @@ export const SessionProvider: ParentComponent = (props) => {
   // Prevents handleMessagesLoaded from wiping them when it replaces the array.
   const pendingOptimistic = new Map<string, Set<string>>()
 
+  // Session IDs received via handleSessionCreated that haven't yet been
+  // confirmed by a loadSessions response. Guards against the race where
+  // a session is created after the loadSessions HTTP request is sent but
+  // before the response arrives — without this, handleSessionsLoaded
+  // would delete the newly-created session from the store.
+  const pending = new Set<string>()
+
   // Store for sessions, messages, parts, todos, modelSelections, agentSelections
   const [store, setStore] = createStore<SessionStore>({
     sessions: {},
@@ -708,6 +715,7 @@ export const SessionProvider: ParentComponent = (props) => {
 
   // Event handlers
   function handleSessionCreated(session: SessionInfo) {
+    pending.add(session.id)
     batch(() => {
       setStore("sessions", session.id, session)
 
@@ -1038,11 +1046,9 @@ export const SessionProvider: ParentComponent = (props) => {
     batch(() => {
       // Reconcile: remove sessions not in the loaded list to prevent stale
       // entries from other projects accumulating in the store.
-      // However, preserve sessions that have a messages entry — these were
-      // added via sessionCreated (locally active) and may have been created
-      // after this loadSessions request was sent. Deleting them would cause
-      // a race where the server hadn't persisted the session yet when the
-      // HTTP list response arrived, wiping a session the user just created.
+      // Preserve sessions in `pending` — these arrived via sessionCreated
+      // after the loadSessions request was sent and may not be in the
+      // server's response yet. Any other stale session is removed.
       const ids = new Set(loaded.map((s) => s.id))
       setStore(
         "sessions",
@@ -1050,11 +1056,13 @@ export const SessionProvider: ParentComponent = (props) => {
           for (const id of Object.keys(sessions)) {
             if (id.startsWith("cloud:")) continue
             if (ids.has(id)) continue
-            if (store.messages[id] !== undefined) continue
+            if (pending.has(id)) continue
             delete sessions[id]
           }
         }),
       )
+      // Sessions confirmed by the server are no longer pending
+      for (const id of ids) pending.delete(id)
       for (const s of loaded) {
         setStore("sessions", s.id, s)
       }

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test"
-import { buildKiloHeaders, getFeatureHeader, getEditorNameHeader } from "@kilocode/kilo-gateway"
-import { HEADER_FEATURE, ENV_FEATURE, ENV_VERSION, DEFAULT_EDITOR_NAME } from "@kilocode/kilo-gateway"
+import { buildKiloHeaders, getFeatureHeader, getEditorNameHeader, getUserAgent } from "@kilocode/kilo-gateway"
+import { HEADER_FEATURE, ENV_FEATURE, ENV_VERSION, DEFAULT_EDITOR_NAME, USER_AGENT } from "@kilocode/kilo-gateway"
 
 describe("getFeatureHeader", () => {
   const original = process.env[ENV_FEATURE]
@@ -26,6 +26,28 @@ describe("getFeatureHeader", () => {
   it("returns undefined for empty string", () => {
     process.env[ENV_FEATURE] = ""
     expect(getFeatureHeader()).toBeUndefined()
+  })
+})
+
+describe("getUserAgent", () => {
+  const original = process.env[ENV_VERSION]
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env[ENV_VERSION]
+    } else {
+      process.env[ENV_VERSION] = original
+    }
+  })
+
+  it("returns base user agent without version when KILOCODE_VERSION is not set", () => {
+    delete process.env[ENV_VERSION]
+    expect(getUserAgent()).toBe(USER_AGENT)
+  })
+
+  it("appends version when KILOCODE_VERSION is set", () => {
+    process.env[ENV_VERSION] = "1.2.3"
+    expect(getUserAgent()).toBe(`${USER_AGENT}/1.2.3`)
   })
 })
 

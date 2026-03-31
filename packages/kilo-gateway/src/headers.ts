@@ -37,11 +37,22 @@ export function getFeatureHeader(): string | undefined {
 }
 
 /**
+ * Get user agent string.
+ * Appends the version from KILOCODE_VERSION when available.
+ */
+export function getUserAgent(): string {
+  const version = process.env[ENV_VERSION]
+  return version ? `${USER_AGENT}/${version}` : USER_AGENT
+}
+
+/**
  * Default headers for KiloCode requests
  */
-export const DEFAULT_HEADERS = {
-  "User-Agent": USER_AGENT,
-  "Content-Type": CONTENT_TYPE,
+export function getDefaultHeaders() {
+  return {
+    "User-Agent": getUserAgent(),
+    "Content-Type": CONTENT_TYPE,
+  }
 }
 
 /**

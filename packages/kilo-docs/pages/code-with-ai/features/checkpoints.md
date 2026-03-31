@@ -118,7 +118,6 @@ Checkpoints are captured automatically at each step of a task. In the CLI termin
 
 - **Full revert**: Revert your workspace to any point in the conversation
 - **Undo a revert**: Restore the state before the last revert
-- **Per-file revert**: Selectively undo changes to specific files while keeping others
 
 {% /tab %}
 {% tab label="VSCode (Legacy)" %}

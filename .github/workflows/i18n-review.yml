@@ -1,0 +1,51 @@
+name: i18n-review
+
+on:
+  pull_request:
+    paths:
+      - "packages/kilo-i18n/src/*.ts"
+      - "packages/kilo-vscode/webview-ui/src/i18n/*.ts"
+      - "packages/kilo-vscode/webview-ui/agent-manager/i18n/*.ts"
+      - "packages/kilo-vscode/src/services/cli-backend/i18n/*.ts"
+      - "packages/kilo-vscode/src/services/autocomplete/i18n/*.ts"
+
+jobs:
+  comment:
+    name: Post EN vs DE translation diff
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Generate translation review
+        id: review
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          OUTPUT=$(bun script/i18n-review.ts --base "$BASE")
+          # Store as multiline env var
+          {
+            echo "body<<REVIEW_EOF"
+            echo "$OUTPUT"
+            echo "REVIEW_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Find existing review comment
+        id: find
+        uses: peter-evans/find-comment@v3
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: "## Translation Review (EN vs DE)"
+
+      - name: Create or update review comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: ${{ steps.review.outputs.body }}
+          edit-mode: replace

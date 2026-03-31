@@ -30,8 +30,6 @@ export async function migrate(id: string, context: vscode.ExtensionContext, clie
       await client.kilocode.sessionImport.part(part, { throwOnError: true })
     }
 
-    await context.globalState.update(`kilo.migratedSession.${payload.session.id}`, true)
-
     return {
       ok: true,
       payload,

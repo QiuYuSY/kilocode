@@ -15,7 +15,7 @@ import { useLanguage } from "../../context/language"
 import type { AgentInfo } from "../../types/messages"
 
 /** Format an agent for display. Uses displayName if available, otherwise title-cases the slug. */
-function formatAgentLabel(agent: AgentInfo): string {
+export function formatAgentLabel(agent: AgentInfo): string {
   if (agent.displayName) return agent.displayName
   return agent.name
     .split(/[-_]/)

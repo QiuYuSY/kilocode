@@ -12,6 +12,7 @@ import { Icon } from "@kilocode/kilo-ui/icon"
 import { Checkbox } from "@kilocode/kilo-ui/checkbox"
 import { useSession } from "../../context/session"
 import { useLanguage } from "../../context/language"
+import { formatAgentLabel } from "../shared/ModeSwitcher"
 import type { TodoItem } from "../../types/messages"
 
 interface TaskHeaderProps {
@@ -44,6 +45,15 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
     return { tokens, pct }
   })
 
+  const activeAgent = createMemo(() => {
+    if (!props.readonly) return undefined
+    const id = session.currentSessionID()
+    if (!id) return undefined
+    const name = session.getSessionAgent(id)
+    const info = session.agents().find((a) => a.name === name)
+    return info ? formatAgentLabel(info) : name
+  })
+
   const todos = createMemo(() => session.todos())
   const hasTodos = createMemo(() => todos().length > 0)
   const doneCount = createMemo(() => todos().filter((t: TodoItem) => t.status === "completed").length)
@@ -65,6 +75,7 @@ export const TaskHeader: Component<TaskHeaderProps> = (props) => {
       <div data-component="task-header">
         <div data-slot="task-header-title" title={title()}>
           {title()}
+          <Show when={activeAgent()}>{(label) => <span data-slot="task-header-mode-badge">{label()}</span>}</Show>
         </div>
         <div data-slot="task-header-stats">
           <Show when={cost()}>

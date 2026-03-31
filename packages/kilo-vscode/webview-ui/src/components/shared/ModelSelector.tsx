@@ -86,7 +86,6 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
   let listRef: HTMLDivElement | undefined
   let bodyRef: HTMLDivElement | undefined
   let previewTimer: ReturnType<typeof setTimeout> | undefined
-  let suppressScroll = false
   const [pointer, setPointer] = createSignal(true)
 
   function onSplitterMouseDown(e: MouseEvent) {
@@ -143,17 +142,22 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
     return visibleModels().filter((m) => m.name.toLowerCase().includes(q))
   })
 
-  // Build a set of favorited model keys for O(1) lookups
+  // Live set of favorited keys — drives the star icon visual state (filled vs outline).
   const favoriteKeys = createMemo(() => {
     if (!session) return new Set<string>()
     return new Set(session.favoriteModels().map((f) => `${f.providerID}/${f.modelID}`))
   })
 
+  // Snapshot of favorite keys used for group sorting. Only refreshed when the
+  // popover opens so that starring a model doesn't rebuild the list mid-interaction
+  // (which causes items to jump between groups). The groups update on next open.
+  const [groupKeys, setGroupKeys] = createSignal(new Set<string>())
+
   // Grouped for rendering — favorites first, then recommended, then per-provider groups.
   // Favorited models that are no longer available (provider disconnected, model removed)
   // are silently omitted — they remain persisted so they reappear when the provider reconnects.
   const groups = createMemo<ModelGroup[]>(() => {
-    const favKeys = favoriteKeys()
+    const favKeys = groupKeys()
     const favorites: EnrichedModel[] = []
     const recommended: EnrichedModel[] = []
     const map = new Map<string, ModelGroup>()
@@ -222,9 +226,11 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
     setPreviewIdx(-1)
   })
 
-  // Focus search input, set selectedIndex to active model, and scroll it into view when popover opens
+  // Focus search input, set selectedIndex to active model, and scroll it into view when popover opens.
+  // Also snapshot favoriteKeys into groupKeys so groups rebuild with fresh favorites.
   createEffect(() => {
     if (open()) {
+      setGroupKeys(favoriteKeys())
       const active = activeModel()
       const activeIdx = active ? (flatIndexMap().get(active) ?? 0) : 0
       setSelectedIndex(activeIdx)
@@ -245,16 +251,6 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
   const onTrigger = () => setOpen(true)
   window.addEventListener("openModelPicker", onTrigger)
   onCleanup(() => window.removeEventListener("openModelPicker", onTrigger))
-
-  // When favorites change via broadcast from another webview, clear stale
-  // indices so the picker doesn't highlight or preview a wrong row.
-  const onExtFav = () => {
-    setSelectedIndex(-1)
-    setPreActiveIdx(-1)
-    setPreviewIdx(-1)
-  }
-  window.addEventListener("favoritesChanged", onExtFav)
-  onCleanup(() => window.removeEventListener("favoritesChanged", onExtFav))
 
   function pick(model: EnrichedModel) {
     props.onSelect(model.providerID, model.id)
@@ -314,7 +310,6 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
 
   function scrollSelectedIntoView() {
     requestAnimationFrame(() => {
-      if (suppressScroll) return
       const el = listRef?.querySelector(".model-selector-item.keyboard-focused")
       el?.scrollIntoView({ block: "nearest" })
     })
@@ -508,25 +503,9 @@ export const ModelSelectorBase: Component<ModelSelectorBaseProps> = (props) => {
                                   aria-pressed={starred()}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    // Preserve scroll position — toggling moves the model
-                                    // between groups which shifts DOM content.
-                                    const scroll = listRef?.scrollTop
-                                    suppressScroll = true
+                                    // Only toggles the star visual — groups don't rebuild
+                                    // until the next open, so no list jumping occurs.
                                     session!.toggleFavorite(model.providerID, model.id)
-                                    // Clear all numeric indices — the model moved to a
-                                    // different group so any index is stale. This also
-                                    // prevents the expanded preview from jumping.
-                                    setSelectedIndex(-1)
-                                    setPreActiveIdx(-1)
-                                    setPreviewIdx(-1)
-                                    if (scroll !== undefined) {
-                                      queueMicrotask(() => {
-                                        if (listRef) listRef.scrollTop = scroll
-                                        suppressScroll = false
-                                      })
-                                    } else {
-                                      suppressScroll = false
-                                    }
                                   }}
                                 >
                                   <Icon name={starred() ? "star-filled" : "star"} size="small" />

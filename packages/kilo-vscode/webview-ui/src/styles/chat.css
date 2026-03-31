@@ -1623,6 +1623,10 @@
   opacity: 1;
 }
 
+.model-selector-star--preview {
+  opacity: 1;
+}
+
 .model-selector-item-select-btn {
   flex-shrink: 0;
   padding: 2px 10px;

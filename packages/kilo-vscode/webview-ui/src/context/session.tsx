@@ -586,13 +586,10 @@ export const SessionProvider: ParentComponent = (props) => {
   vscode.postMessage({ type: "requestRecents" })
   onCleanup(unsubRecents)
 
-  // Load persisted favorite models from extension globalState.
-  // Broadcasts from other webviews also arrive here — dispatch a DOM event
-  // so open ModelSelectors can defensively clear stale numeric indices.
+  // Load persisted favorite models from extension globalState
   const unsubFavorites = vscode.onMessage((message: ExtensionMessage) => {
     if (message.type !== "favoritesLoaded") return
     setStore("favoriteModels", message.favorites)
-    window.dispatchEvent(new Event("favoritesChanged"))
   })
   vscode.postMessage({ type: "requestFavorites" })
   onCleanup(unsubFavorites)

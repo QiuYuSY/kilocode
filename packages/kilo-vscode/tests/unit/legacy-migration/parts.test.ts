@@ -82,6 +82,27 @@ describe("legacy migration parts", () => {
     expect(items.some((x) => x.includes("In this folder I need you to create 3 python files"))).toBe(true)
   })
 
+  it("keeps only the first task block content when text exists outside the legacy task wrapper", () => {
+    const list = parsePartsFromConversation(
+      [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Some preamble\n<task>actual task</task>\nSome postamble",
+            },
+          ],
+          ts: 1774861014564,
+        },
+      ] as LegacyApiMessage[],
+      id,
+      item,
+    )
+
+    expect(text(list)).toEqual(["actual task"])
+  })
+
   it("preserves attempt_completion input.result as assistant-visible text", async () => {
     const list = parsePartsFromConversation(sample(), id, item)
 

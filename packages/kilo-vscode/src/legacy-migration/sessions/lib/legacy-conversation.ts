@@ -10,6 +10,8 @@ export async function getApiConversationHistory(id: string, dir: string) {
 export function parseFile(file: Uint8Array): LegacyApiMessage[] {
   const text = Buffer.from(file).toString("utf8")
   const json = JSON.parse(text) as unknown
-  if (!Array.isArray(json)) return []
+  if (!Array.isArray(json)) {
+    throw new Error("Legacy conversation history must be a JSON array")
+  }
   return json.filter((entry): entry is LegacyApiMessage => Boolean(entry && typeof entry === "object"))
 }

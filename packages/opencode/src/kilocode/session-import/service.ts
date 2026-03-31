@@ -1,5 +1,4 @@
 import { Database } from "../../storage/db"
-import { ProjectTable } from "../../project/project.sql"
 import { SessionTable, MessageTable, PartTable } from "../../session/session.sql"
 import { SessionImportType } from "./types"
 import { Project } from "../../project/project"

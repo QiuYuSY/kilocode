@@ -112,12 +112,11 @@ export async function detectLegacyData(context: vscode.ExtensionContext): Promis
 
 async function readSessionsInGlobalStorage(context: vscode.ExtensionContext) {
   const dir = vscode.Uri.joinPath(context.globalStorageUri, "tasks")
-  const kind = (vscode as { FileType?: { Directory?: number } }).FileType?.Directory ?? 2
   const items = await vscode.workspace.fs.readDirectory(dir).then(
     (items) => items,
     () => [] as [string, vscode.FileType][],
   )
-  return items.filter(([, type]) => type === kind).map(([name]) => name)
+  return items.filter(([, type]) => type === vscode.FileType.Directory).map(([name]) => name)
 }
 
 async function readSessionsToMigrate(context: vscode.ExtensionContext, sessions: string[]) {

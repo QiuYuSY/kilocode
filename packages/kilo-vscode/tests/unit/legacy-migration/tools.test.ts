@@ -67,6 +67,34 @@ function merged(): LegacyApiMessage[] {
   ]
 }
 
+function noTextResult(): LegacyApiMessage[] {
+  return [
+    {
+      role: "assistant",
+      content: [
+        {
+          type: "tool_use",
+          id: "toolu_merge_2",
+          name: "read_file",
+          input: { path: "app.py" },
+        },
+      ],
+      ts: 1774861015000,
+    },
+    {
+      role: "user",
+      content: [
+        {
+          type: "tool_result",
+          tool_use_id: "toolu_merge_2",
+          content: [],
+        },
+      ],
+      ts: 1774861016000,
+    },
+  ]
+}
+
 describe("legacy migration tools", () => {
   it("creates a fallback tool part from tool_use when there is no matching tool_result", () => {
     const list = parsePartsFromConversation(fallback(), id, item)
@@ -93,5 +121,14 @@ describe("legacy migration tools", () => {
     const out = tools(list)
 
     expect(out).toHaveLength(1)
+  })
+
+  it("falls back to the tool name when tool_result has no readable text content", () => {
+    const list = parsePartsFromConversation(noTextResult(), id, item)
+    const out = tools(list)
+
+    expect(out).toHaveLength(1)
+    if (out[0]?.state.status !== "completed") throw new Error("tool was not completed")
+    expect(out[0].state.output).toBe("read_file")
   })
 })

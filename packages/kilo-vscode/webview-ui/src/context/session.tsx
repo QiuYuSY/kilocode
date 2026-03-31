@@ -142,6 +142,7 @@ interface SessionContextValue {
 
   // Agent/mode selection (per-session)
   agents: Accessor<AgentInfo[]>
+  subagents: Accessor<AgentInfo[]>
   removeMode: (name: string) => void
   removeMcp: (name: string) => void
 
@@ -250,6 +251,7 @@ export const SessionProvider: ParentComponent = (props) => {
   // Agents (modes) loaded from the CLI backend
   const [agents, setAgents] = createSignal<AgentInfo[]>([])
   const [defaultAgent, setDefaultAgent] = createSignal("code")
+  const [subagents, setSubagents] = createSignal<AgentInfo[]>([])
 
   // Skills loaded from the CLI backend
   const [skills, setSkills] = createSignal<SkillInfo[]>([])
@@ -456,6 +458,7 @@ export const SessionProvider: ParentComponent = (props) => {
     }
     setAgents(message.agents)
     setDefaultAgent(message.defaultAgent)
+    if (message.subagents) setSubagents(message.subagents)
 
     const names = new Set(message.agents.map((a) => a.name))
 
@@ -1704,6 +1707,7 @@ export const SessionProvider: ParentComponent = (props) => {
     costBreakdown,
     contextUsage,
     agents,
+    subagents,
     skills,
     refreshSkills,
     removeSkill,

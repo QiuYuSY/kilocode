@@ -222,6 +222,7 @@ export interface AgentInfo {
   hidden?: boolean
   deprecated?: boolean
   color?: string
+  prompt?: string
 }
 
 // Server info
@@ -654,6 +655,7 @@ export interface AgentsLoadedMessage {
   type: "agentsLoaded"
   agents: AgentInfo[]
   defaultAgent: string
+  subagents?: AgentInfo[]
 }
 
 export interface SkillsLoadedMessage {

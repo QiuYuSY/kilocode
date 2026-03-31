@@ -1604,6 +1604,10 @@
     color 0.1s ease;
 }
 
+.model-selector-star [data-component="icon"] {
+  color: inherit;
+}
+
 .model-selector-item:hover .model-selector-star,
 .model-selector-item.selected .model-selector-star,
 .model-selector-star--active {
@@ -1611,11 +1615,11 @@
 }
 
 .model-selector-star--active {
-  color: var(--vscode-notificationsWarningIcon-foreground, #cca700);
+  color: var(--vscode-list-highlightForeground);
 }
 
 .model-selector-star:hover {
-  color: var(--vscode-notificationsWarningIcon-foreground, #cca700);
+  color: var(--vscode-list-highlightForeground);
   opacity: 1;
 }
 

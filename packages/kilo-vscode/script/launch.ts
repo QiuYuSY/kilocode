@@ -156,7 +156,15 @@ function detect(): string {
   }
 
   const found = candidates.find((c) => existsSync(c))
-  if (found) return found
+  if (found) {
+    // On Windows, Code.exe is the raw Electron binary and cannot be launched directly
+    // with folder/extension args — use the bin/code.cmd wrapper instead.
+    if (win) {
+      const wrapper = join(found, "..", "bin", "code.cmd")
+      if (existsSync(wrapper)) return wrapper
+    }
+    return found
+  }
 
   // Last resort: PATH lookup
   const path = insiders ? (which("code-insiders") ?? which("code")) : (which("code") ?? which("code-insiders"))
@@ -318,12 +326,17 @@ async function launch() {
     return
   }
 
-  const child = spawn(app, args, {
+  // On Windows, .cmd files require shell:true. Quote all args so cmd.exe
+  // handles paths with spaces correctly.
+  const spawnArgs = win ? args.map((a) => (a.includes(" ") ? `"${a}"` : a)) : args
+  const child = spawn(win ? `"${app}"` : app, spawnArgs, {
     cwd: workspace,
     detached: !win,
     env: process.env,
     stdio: "ignore",
+    ...(win ? { shell: true } : {}),
   })
+
   child.unref()
 
   console.log(`[launch] VS Code launched (pid ${child.pid})`)

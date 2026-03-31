@@ -89,7 +89,9 @@ function parseParts(
     if (isToolResult(part)) {
       const feedback = getFeedbackText(part.content)
       if (feedback) {
-        parts.push(toText(createExtraPartID(id, index, `feedback-${partIndex}`), messageID, sessionID, created, feedback))
+        parts.push(
+          toText(createExtraPartID(id, index, `feedback-${partIndex}`), messageID, sessionID, created, feedback),
+        )
       }
 
       // tool_result usually lives in the following user message, while the matching tool_use lives

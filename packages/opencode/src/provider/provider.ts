@@ -1274,6 +1274,17 @@ export namespace Provider {
     }
   }
 
+  /**
+   * Resolves the small model used for lightweight tasks (title generation, commit messages, prompt enhancement).
+   *
+   * Resolution order:
+   * 1. User-configured `small_model` from config (explicit override)
+   * 2. Provider-specific auto-detection: kilo-auto/small for Kilo, Haiku/Flash/Nano for others
+   * 3. Global fallback to kilo/kilo-auto/small if the Kilo provider is available
+   * 4. undefined (callers typically fall back to the session's primary model)
+   *
+   * On a fresh install with no config, the Kilo provider auto-loads and this resolves to kilo-auto/small.
+   */
   export async function getSmallModel(providerID: string) {
     const cfg = await Config.get()
 

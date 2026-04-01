@@ -1179,7 +1179,9 @@ export namespace Config {
         .describe("Model to use in the format of provider/model, eg anthropic/claude-2")
         .optional(),
       small_model: ModelId.nullable()
-        .describe("Small model to use for tasks like title generation in the format of provider/model")
+        .describe(
+          "Small model to use for tasks like title generation in the format of provider/model. When unset, auto-resolves via getSmallModel(): kilo-auto/small for Kilo provider, or a provider-specific small model (Haiku, Flash, Nano), falling back to the session's primary model",
+        )
         .optional(),
       // kilocode_change end
       // kilocode_change start - renamed from "build" to "code"

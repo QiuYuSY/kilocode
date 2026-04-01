@@ -2031,6 +2031,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const agent = await Agent.get("title")
     if (!agent) return
+    // Title agent model resolution: agent override → small model (e.g. kilo-auto/small) → session's primary model
     const model = await iife(async () => {
       if (agent.model) return await Provider.getModel(agent.model.providerID, agent.model.modelID)
       return (

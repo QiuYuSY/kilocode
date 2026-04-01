@@ -533,6 +533,8 @@ async function migrateDefaultModel(settings: LegacyProviderSettings, client: Kil
     return { item: "Default model", category: "defaultModel", status: "warning", message: "No model ID found" }
   }
 
+  // Only the primary model is migrated. small_model is intentionally not migrated because the
+  // legacy extension had no equivalent concept — it auto-resolves at runtime via getSmallModel().
   await client.global.config.update({ config: { model: `${mapping.id}/${modelId}` } })
   return { item: "Default model", category: "defaultModel", status: "success" }
 }

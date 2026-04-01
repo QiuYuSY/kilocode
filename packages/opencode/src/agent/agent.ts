@@ -234,14 +234,19 @@ export namespace Agent {
             external_directory: {
               [path.join(Global.Path.data, "plans", "*")]: "allow",
             },
+          }),
+          user,
+          // kilocode_change start — enforce edit restrictions after user config so user cannot
+          // override the plan agent's write restrictions via global "edit: allow" permissions.
+          PermissionNext.fromConfig({
             edit: {
               "*": "deny",
-              [path.join(".kilo", "plans", "*.md")]: "allow", // kilocode_change
-              [path.join(".opencode", "plans", "*.md")]: "allow", // kilocode_change: .opencode fallback
+              [path.join(".kilo", "plans", "*.md")]: "allow",
+              [path.join(".opencode", "plans", "*.md")]: "allow",
               [path.relative(Instance.worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
             },
           }),
-          user,
+          // kilocode_change end
         ),
         mode: "primary",
         native: true,

@@ -361,6 +361,15 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   const syncGhost = () => ghost.sync(textareaRef)
 
+  // Close slash/mention menus when the textarea loses focus so that
+  // Escape on another focused element (e.g. PermissionDock) doesn't
+  // collide with stale menu state. See #8080.
+  const handleBlur = () => {
+    syncGhost()
+    if (slash.show()) slash.close()
+    if (mention.showMention()) mention.closeMention()
+  }
+
   const scrollToActiveItem = () => {
     if (!dropdownRef) return
     const items = dropdownRef.querySelectorAll(".file-mention-item")
@@ -767,7 +776,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             onPaste={handlePaste}
             onClick={syncGhost}
             onFocus={syncGhost}
-            onBlur={syncGhost}
+            onBlur={handleBlur}
             onSelect={syncGhost}
             onScroll={syncHighlightScroll}
             aria-disabled={isDisabled()}

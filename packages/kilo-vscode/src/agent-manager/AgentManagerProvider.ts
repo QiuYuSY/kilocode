@@ -19,6 +19,7 @@ import { createTerminalHost } from "./terminal-host"
 import { executeVscodeTask } from "./task-runner"
 import { forkSession } from "./fork-session"
 import { continueInWorktree } from "./continue-in-worktree"
+import { scheduleReconciliation } from "./reconcile-sessions"
 
 import { shouldStopDiffPolling } from "./delete-worktree"
 import { buildKeybindingMap } from "./format-keybinding"
@@ -176,9 +177,6 @@ export class AgentManagerProvider implements Disposable {
     await state.load()
     manager.cleanupOrphanedTempDirs()
 
-    // Do not auto-remove stale worktrees on load.
-    // Presence checks run in the shared poller and require explicit user cleanup.
-
     // Register all worktree sessions with the session provider
     for (const worktree of state.getWorktrees()) {
       for (const session of state.getSessions(worktree.id)) {
@@ -187,13 +185,25 @@ export class AgentManagerProvider implements Disposable {
       }
     }
 
-    // Push full state to webview
     this.pushState()
+    if (state.getSessions().length > 0) this.panel?.sessions.refreshSessions()
 
-    // Refresh sessions so worktree sessions appear in the list
-    if (state.getSessions().length > 0) {
-      this.panel?.sessions.refreshSessions()
-    }
+    // Reconcile persisted sessions against the live backend (async, non-blocking)
+    void this.reconcileWorktreeSessions(state)
+  }
+
+  private reconcileWorktreeSessions(s: WorktreeStateManager): Promise<void> {
+    return scheduleReconciliation({
+      getClient: () => this.connectionService.getClient(),
+      onStateChange: (cb) => this.connectionService.onStateChange(cb),
+      state: s,
+      registerWorktreeSession: (id, dir) => this.registerWorktreeSession(id, dir),
+      registerSession: (session) => this.panel?.sessions.registerSession(session),
+      pushState: () => this.pushState(),
+      refreshSessions: () => this.panel?.sessions.refreshSessions(),
+      capture: (event, props) => this.host.capture(event, props),
+      log: (...args) => this.log(...args),
+    })
   }
 
   // ---------------------------------------------------------------------------

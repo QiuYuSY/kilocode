@@ -1,62 +1,77 @@
 # Learn Kilo
 
-这里是一套真正按“课程”组织的工程学习体系。
+这次的 `learn-kilo` 不再是“源码阅读提纲”，而是一套按课程模块组织的工程课。
 
-每一节课都是 `learn-kilo/` 下的一个独立文件夹，不再是散乱的几篇文档。
+目标很明确：
 
-每个课包统一包含 4 个文件：
+- 让初学者真正进入当前仓库，而不是被目录和文件名劝退
+- 让学习过程有讲解、有实验、有复盘，而不是只剩下一串阅读路径
+- 让你学完后不只是“看过源码”，而是能比较深入地讲清楚系统设计
 
-- `README.md`
-  讲义。包含课程目标、前置要求、时长、完成线、阅读顺序卡、关键源码、非重点边界。
-- `practice.md`
-  练习。至少包含入门练习、追链练习、输出练习。
-- `thinking.md`
-  思考题。不是只问“是什么”，而是逼你去思考设计权衡。
-- `deliverables.md`
-  产出要求。告诉你这节课应该留下什么成果、推荐用什么结构表达。
+## 课程结构
 
-核心课额外会提供：
+每一课都是一个独立文件夹，里面固定有 5 份按顺序命名的材料：
 
-- `guided.md`
-  带读讲义。适合你第一次硬啃真实源码时使用，会告诉你先看哪里、先忽略哪里、读到哪一步先停下来总结。
+- `00-课前导读.md`
+  帮你在进入本课前先校准目标、识别误区、知道本课最重要的任务
+- `01-课程说明.md`
+  这节课学什么、为什么这么安排、你要先做哪些准备
+- `02-课程讲义.md`
+  真正的课程讲义，会讲概念、讲设计、讲文件之间的关系
+- `03-实验与练习.md`
+  实验和练习，会要求你跑命令、读文件、画图、追链、记录观察
+- `04-复盘与作业.md`
+  复盘、问答、作业、验收标准
+- `05-课后总复盘模板.md`
+  一份统一的课后复盘模板，帮助你把每节课的输入整理成自己的长期记忆和判断
 
-## 推荐学习顺序
+## 课程目录
 
-1. [项目地图](/d:/Code/kilocode/learn-kilo/project-map.md)
-2. [课程总表](/d:/Code/kilocode/learn-kilo/课程总表.md)
-3. [学习路径](/d:/Code/kilocode/learn-kilo/学习路径.md)
-4. [00-开课与学习方法](/d:/Code/kilocode/learn-kilo/00-开课与学习方法)
-5. [01-仓库全景与产品关系](/d:/Code/kilocode/learn-kilo/01-仓库全景与产品关系)
-6. [02-CLI入口与命令系统](/d:/Code/kilocode/learn-kilo/02-CLI入口与命令系统)
-7. [03-Server与实时事件流](/d:/Code/kilocode/learn-kilo/03-Server与实时事件流)
-8. [04-Project与Instance系统](/d:/Code/kilocode/learn-kilo/04-Project与Instance系统)
-9. [05-Config与Storage系统](/d:/Code/kilocode/learn-kilo/05-Config与Storage系统)
-10. [06-Session数据模型](/d:/Code/kilocode/learn-kilo/06-Session数据模型)
-11. [07-SessionProcessor与执行循环](/d:/Code/kilocode/learn-kilo/07-SessionProcessor与执行循环)
-12. [08-Agent模式与权限系统](/d:/Code/kilocode/learn-kilo/08-Agent模式与权限系统)
-13. [09-Tool注册与动态编排](/d:/Code/kilocode/learn-kilo/09-Tool注册与动态编排)
-14. [10-VSCode扩展与AgentManager](/d:/Code/kilocode/learn-kilo/10-VSCode扩展与AgentManager)
-15. [11-SDK与契约层](/d:/Code/kilocode/learn-kilo/11-SDK与契约层)
-16. [12-共享前端与UI组件层](/d:/Code/kilocode/learn-kilo/12-共享前端与UI组件层)
-17. [13-Kilo增量与Fork差异](/d:/Code/kilocode/learn-kilo/13-Kilo增量与Fork差异)
-18. [14-毕业实战与深度复盘](/d:/Code/kilocode/learn-kilo/14-毕业实战与深度复盘)
+1. [01-课程准备与仓库地图](/d:/Code/kilocode/learn-kilo/01-课程准备与仓库地图)
+2. [02-核心入口与服务端](/d:/Code/kilocode/learn-kilo/02-核心入口与服务端)
+3. [03-项目上下文与配置存储](/d:/Code/kilocode/learn-kilo/03-项目上下文与配置存储)
+4. [04-会话模型与执行循环](/d:/Code/kilocode/learn-kilo/04-会话模型与执行循环)
+5. [05-Agent与工具编排](/d:/Code/kilocode/learn-kilo/05-Agent与工具编排)
+6. [06-VSCode扩展全链路](/d:/Code/kilocode/learn-kilo/06-VSCode扩展全链路)
+7. [07-SDK共享前端与Kilo差异](/d:/Code/kilocode/learn-kilo/07-SDK共享前端与Kilo差异)
+8. [08-毕业项目](/d:/Code/kilocode/learn-kilo/08-毕业项目)
 
-## 这轮升级后的核心特点
+## 推荐学习方式
 
-- 课程颗粒度更细，不再把多个大主题硬塞进一课
-- 每课都有“最低完成线 / 标准完成线 / 深入完成线”
-- 每课都有“源码阅读顺序卡”，减少小白迷路概率
-- 核心课开始补“guided.md”带读讲义，进一步降低第一次进源码的难度
-- 每课都明确告诉你“先看什么、暂时不要深挖什么”
-- 每课都要求输出，不允许停在“看过了”
+不要只读 `02-课程讲义.md`。
 
-## 你学完后应该达到的水平
+每一课建议按这个顺序：
 
-如果完整学完并完成产出，你应该能：
+1. 先看 `00-课前导读.md`
+2. 再看 `01-课程说明.md`
+3. 再看 `02-课程讲义.md`
+4. 然后做 `03-实验与练习.md`
+5. 最后完成 `04-复盘与作业.md`
+6. 收尾时填写 `05-课后总复盘模板.md`
 
-- 讲清楚仓库的产品关系和分层
-- 讲清楚 `packages/opencode` 的核心主链路
-- 讲清楚 `Project`、`Instance`、`Config`、`Session`、`Agent`、`Tool` 的设计角色
-- 讲清楚 VS Code 扩展如何连接 CLI backend
-- 讲清楚 Kilo 相比 upstream OpenCode 增加了哪些关键能力
-- 完成一次真实的源码讲解或小型改动
+## 这套课和普通阅读清单的区别
+
+它不是在告诉你“看哪些文件”，而是在做 4 件事：
+
+- 帮你建立心智地图
+- 带你顺着真实链路进入源码
+- 逼你做实验而不是只看结论
+- 让你在每一课结束时形成自己的判断
+
+## 学完后你应该达到的水平
+
+完成全部 8 课后，你应该能比较深入地回答：
+
+- 这个 monorepo 的产品结构和分层是什么
+- 为什么 `packages/opencode` 是整个系统的核心
+- 一次请求如何从入口走到 Session、Agent、Tool、UI
+- 为什么这里需要 `Instance`、`SessionProcessor`、`ToolRegistry` 这类抽象
+- 为什么 VS Code 扩展只是客户端，而不是系统主体
+- Kilo 相比 upstream OpenCode 主要增加了哪些能力
+
+## 参考材料
+
+- [project-map.md](/d:/Code/kilocode/learn-kilo/project-map.md)
+- [课程升级任务清单.md](/d:/Code/kilocode/learn-kilo/课程升级任务清单.md)
+
+如果你愿意，我后面还可以在这套正式课程之上，再继续做“逐课带学版”。

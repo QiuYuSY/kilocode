@@ -1,0 +1,28 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="520" rx="28" fill="#FFF9F2"/>
+  <text x="40" y="58" fill="#1F2430" font-size="30" font-family="Georgia, Noto Serif SC, serif" font-weight="700">核心运行时链路</text>
+  <rect x="42" y="108" width="170" height="86" rx="20" fill="#F2F9F8" stroke="#0D6B5D" stroke-width="2"/>
+  <text x="66" y="144" fill="#0D6B5D" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">CLI 入口</text>
+  <text x="66" y="174" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif">index.ts</text>
+  <rect x="244" y="108" width="170" height="86" rx="20" fill="#FFF4ED" stroke="#C8642D" stroke-width="2"/>
+  <text x="270" y="144" fill="#C8642D" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">服务入口</text>
+  <text x="270" y="174" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif">ServeCommand</text>
+  <rect x="446" y="108" width="170" height="86" rx="20" fill="#EEF3FB" stroke="#1D4F91" stroke-width="2"/>
+  <text x="470" y="144" fill="#1D4F91" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">后端中枢</text>
+  <text x="470" y="174" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif">server.ts</text>
+  <rect x="244" y="250" width="170" height="92" rx="20" fill="#FFFFFF" stroke="#D7D2C7" stroke-width="2"/>
+  <text x="262" y="286" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">上下文建立</text>
+  <text x="262" y="316" fill="#5D6472" font-size="16" font-family="Segoe UI, Microsoft YaHei, sans-serif">Project / Instance</text>
+  <rect x="446" y="250" width="170" height="92" rx="20" fill="#FFFFFF" stroke="#D7D2C7" stroke-width="2"/>
+  <text x="470" y="286" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">业务心脏</text>
+  <text x="470" y="316" fill="#5D6472" font-size="16" font-family="Segoe UI, Microsoft YaHei, sans-serif">Session / Agent / Tool</text>
+  <rect x="244" y="392" width="372" height="86" rx="20" fill="#F6F1FB" stroke="#7A4DA6" stroke-width="2"/>
+  <text x="270" y="428" fill="#7A4DA6" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">实时同步</text>
+  <text x="270" y="458" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif">/event SSE · 文本流 · 工具状态 · permission / question</text>
+  <path d="M212 151H244" stroke="#0D6B5D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M414 151H446" stroke="#C8642D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M329 194V250" stroke="#C8642D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M531 194V250" stroke="#1D4F91" stroke-width="4" stroke-linecap="round"/>
+  <path d="M329 342V392" stroke="#6A6382" stroke-width="4" stroke-linecap="round"/>
+  <path d="M531 342V392" stroke="#6A6382" stroke-width="4" stroke-linecap="round"/>
+</svg>

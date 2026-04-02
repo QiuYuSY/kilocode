@@ -1,379 +1,247 @@
 # 项目地图
 
-这份地图的作用，是先帮你建立全局视角。
+这份地图不是目录导览，而是给二次开发者用的。
 
-当前仓库不是一个单体应用，而是一个以 `packages/opencode/` 为核心的 monorepo。很多产品其实都只是这个核心的不同客户端。
+你读它的目标不是“知道仓库里有什么”，而是先建立一个判断:
+
+以后我想改一个能力时，应该先去哪个层级下手。
 
 ## 一句话理解整个仓库
 
-`packages/opencode/` 是核心运行时与服务端。
+KiloCode 不是“一个 VS Code 扩展项目”，而是:
 
-其他产品大多只是不同形态的客户端：
+一个以 `packages/opencode/` 为核心运行时和服务端的 monorepo。
 
-- CLI 终端界面直接跑在 `packages/opencode/`
-- VS Code 扩展在 `packages/kilo-vscode/`，但背后仍然启动 `kilo serve`
-- Web 与 Desktop 复用 `packages/app/` 这套前端，再去连接 `kilo serve`
-- `packages/sdk/js/` 是所有客户端调用服务端 API 的桥梁
+其它产品大多只是这个核心的不同接入形态。
 
-## 顶层目录怎么理解
+## 四层结构
 
-- `packages/`
-  绝大多数业务代码都在这里
-- `script/`
-  仓库级脚本
-- `patches/`
-  对第三方依赖的补丁
-- `specs/`
-  一些规格和说明
-- `sdks/`
-  部分外部 SDK 或相关资源
-- `.github/`
-  CI、工作流、仓库自动化
+### 1. 核心运行时层
 
-## 你最该先认识的包
-
-### 第一优先级
+核心包:
 
 - `packages/opencode/`
-  核心 CLI、Agent 运行时、Session、Tool、Server、Provider、Storage 都在这里
-- `packages/kilo-vscode/`
-  VS Code 扩展，最适合理解“客户端如何连接核心服务”
-- `packages/sdk/js/`
-  自动生成的 SDK，连接客户端和服务端 API
 
-### 第二优先级
+这一层负责:
+
+- CLI 入口
+- headless server
+- Project / Instance 上下文
+- Session / Message / Part 建模
+- Agent / Permission / Tool 编排
+- Provider、Storage、Snapshot、Bus 等基础运行时
+
+如果你的改动涉及:
+
+- 对话执行逻辑
+- 工具执行方式
+- 会话状态
+- 权限规则
+- 服务端 route
+
+那大概率先落在这里。
+
+### 2. 客户端接入层
+
+核心包:
+
+- `packages/kilo-vscode/`
+- `packages/app/`
+- `packages/desktop/`
+
+这一层负责:
+
+- 把核心运行时接入具体宿主环境
+- 启动或连接 `kilo serve`
+- 把 HTTP/SSE 结果变成具体 UI 交互
+
+如果你的改动涉及:
+
+- VS Code 命令、webview、Agent Manager
+- web / desktop 页面行为
+- 编辑器侧体验编排
+
+那先看客户端接入层。
+
+### 3. 契约与共享层
+
+核心包:
+
+- `packages/sdk/js/`
+- `packages/kilo-ui/`
+- `packages/plugin/`
+- `packages/util/`
+
+这一层负责:
+
+- 客户端和服务端的 API 契约
+- UI 共享能力
+- 插件/工具接口定义
+- 跨包通用能力
+
+如果你的改动涉及:
+
+- 新 route 对客户端的调用方式
+- 多个客户端共用同一 API
+- 通用 UI / 通用类型
+
+就要先考虑这一层。
+
+### 4. Kilo 平台增量层
+
+核心包和目录:
 
 - `packages/kilo-gateway/`
-  Kilo 的鉴权、Kilo API、Provider 路由、组织模式等能力
 - `packages/kilo-telemetry/`
-  遥测与 OpenTelemetry
-- `packages/kilo-ui/`
-  Kilo 的 Solid UI 组件库
-- `packages/app/`
-  Web / Desktop 共享前端
+- `packages/kilo-i18n/`
+- `packages/opencode/src/kilocode/`
 
-### 第三优先级
+这一层负责:
 
-- `packages/desktop/`
-  Tauri 桌面壳
-- `packages/ui/`
-  upstream 的共享 UI 库，体量大，先不要深挖
-- `packages/util/`
-  通用工具
-- `packages/plugin/`
-  插件与工具接口定义
-- `packages/kilo-docs/`
-  文档站
+- Kilo 平台鉴权与 provider 路由
+- 遥测
+- legacy Kilocode 迁移
+- 组织模式、Kilo routes、Kilo 差异能力
 
-## 真实产品关系
+如果一个改动明显只属于 Kilo，而不是 upstream OpenCode 的共通能力，优先看这层。
 
-### 1. CLI / TUI
+## 先建立 3 个最重要的误区修正
 
-入口：
+### 误区 1
 
-- `packages/opencode/src/index.ts`
+“VS Code 扩展就是系统主体。”
 
-主链路：
+不是。
 
-- `index.ts`
-- `cli/cmd/*.ts`
-- `server/server.ts`
-- `session/`
-- `agent/`
-- `tool/`
-- `provider/`
-- `storage/`
+扩展只是宿主接入层。真正的执行引擎、会话、工具和服务端都在 `packages/opencode/`。
 
-### 2. VS Code 扩展
+### 误区 2
 
-入口：
+“SDK 只是为了方便调接口。”
 
-- `packages/kilo-vscode/src/extension.ts`
+不是。
 
-主链路：
+`packages/sdk/js/` 是多客户端共享同一后端契约的桥梁层。只要 route 变了，就要考虑 SDK 是否要同步生成。
 
-- 扩展激活
-- `KiloConnectionService`
-- `ServerManager`
-- 拉起 `bin/kilo serve --port 0`
-- 通过 `@kilocode/sdk` 调用 HTTP API
-- 通过 SSE 接收实时事件
-- webview 用 Solid 渲染 UI
+### 误区 3
 
-### 3. Web / Desktop
+“Kilo 差异只是品牌替换。”
 
-入口：
+不是。
 
-- `packages/app/src/entry.tsx`
-- `packages/desktop/`
+Kilo 在鉴权、路由、遥测、legacy 配置迁移、组织模式、扩展编排上都有真实平台增量。
 
-主链路：
+## 最重要的源码主链
 
-- 前端应用启动
-- 通过 `@kilocode/sdk` 连接服务端
-- 共享 UI 与状态管理
-
-## 当前仓库里最重要的源码入口
-
-如果你只能挑一条主线来读，就按下面顺序：
+如果你第一次真正读这仓库，请只抓这条线:
 
 1. `packages/opencode/src/index.ts`
 2. `packages/opencode/src/cli/cmd/serve.ts`
 3. `packages/opencode/src/server/server.ts`
-4. `packages/opencode/src/project/instance.ts`
-5. `packages/opencode/src/project/project.ts`
+4. `packages/opencode/src/project/project.ts`
+5. `packages/opencode/src/project/instance.ts`
 6. `packages/opencode/src/session/index.ts`
-7. `packages/opencode/src/session/processor.ts`
-8. `packages/opencode/src/agent/agent.ts`
-9. `packages/opencode/src/tool/registry.ts`
-10. `packages/opencode/src/config/config.ts`
+7. `packages/opencode/src/session/message-v2.ts`
+8. `packages/opencode/src/session/processor.ts`
+9. `packages/opencode/src/agent/agent.ts`
+10. `packages/opencode/src/tool/registry.ts`
 
-这条链路基本就是“从启动到执行”的主干。
+这条线对应的是:
 
-## 你需要先理解的 8 个核心概念
+入口 -> 服务化 -> 上下文 -> 会话建模 -> 执行循环 -> Agent/Tool 编排
 
-### 1. Command
+## VS Code 端主链
 
-CLI 的各种命令由 `packages/opencode/src/cli/cmd/` 定义，比如：
-
-- `run.ts`
-- `serve.ts`
-- `session.ts`
-- `mcp.ts`
-- `models.ts`
-
-### 2. Server
-
-`packages/opencode/src/server/server.ts` 使用 Hono 搭建 HTTP API 和 SSE 事件流，是所有客户端共享的服务端。
-
-关键路由目录：
-
-- `packages/opencode/src/server/routes/`
-
-其中包括：
-
-- `session.ts`
-- `project.ts`
-- `provider.ts`
-- `permission.ts`
-- `question.ts`
-- `pty.ts`
-- `mcp.ts`
-- `kilocode.ts`
-- `telemetry.ts`
-
-### 3. Instance
-
-`packages/opencode/src/project/instance.ts`
-
-这个模块非常关键。你可以把它理解成“按项目目录隔离的一层运行时上下文”。
-
-很多模块都不是全局单例，而是“每个项目目录一个实例状态”。
-
-### 4. Project
-
-`packages/opencode/src/project/project.ts`
-
-负责识别当前目录属于哪个项目、是否在 Git 仓库里、工作树在哪里、项目 ID 怎么算。
-
-### 5. Session
-
-`packages/opencode/src/session/index.ts`
-
-Session 是对话和执行过程的核心数据对象。它会关联：
-
-- 项目
-- 目录
-- 消息
-- part
-- 成本
-- diff
-- 权限
-
-### 6. Agent
-
-`packages/opencode/src/agent/agent.ts`
-
-这里定义了系统里的 agent 模式，比如：
-
-- `code`
-- `plan`
-- `debug`
-- `ask`
-- `general`
-- `explore`
-
-agent 的重点不只是 prompt，还有权限规则。
-
-### 7. Tool
-
-`packages/opencode/src/tool/registry.ts`
-
-这里决定一个 agent 可以用哪些工具，以及哪些工具会按模型、按配置、按客户端能力启用。
-
-核心工具目录：
-
-- `packages/opencode/src/tool/`
-
-你会看到：
-
-- `bash.ts`
-- `read.ts`
-- `glob.ts`
-- `grep.ts`
-- `edit.ts`
-- `write.ts`
-- `apply_patch.ts`
-- `webfetch.ts`
-- `websearch.ts`
-- `task.ts`
-- `todo.ts`
-
-### 8. Config
-
-`packages/opencode/src/config/config.ts`
-
-这是项目最复杂的模块之一。因为它不只是“读一个配置文件”，而是在做多层来源合并：
-
-- legacy Kilocode 配置
-- organization 模式
-- global config
-- project config
-- `.opencode` / `.kilo` 目录配置
-- managed config
-- 环境变量覆盖
-
-## Kilo 在 upstream OpenCode 基础上新增了什么
-
-Kilo-specific 的内容主要集中在：
-
-- `packages/opencode/src/kilocode/`
-- `packages/kilo-gateway/`
-- `packages/kilo-telemetry/`
-- `packages/kilo-vscode/`
-- `packages/kilo-ui/`
-
-在共享 upstream 文件里，你还会看到 `kilocode_change` 注释，这表示这是 Kilo fork 后加的差异点。
-
-## VS Code 扩展主线怎么读
-
-如果你开始学扩展端，建议按这个顺序：
+如果你要理解扩展如何接入核心，请抓这条线:
 
 1. `packages/kilo-vscode/src/extension.ts`
 2. `packages/kilo-vscode/src/services/cli-backend/server-manager.ts`
 3. `packages/kilo-vscode/src/services/cli-backend/connection-service.ts`
 4. `packages/kilo-vscode/src/KiloProvider.ts`
-5. `packages/kilo-vscode/webview-ui/src/App.tsx`
+5. `packages/kilo-vscode/webview-ui/`
 
-这条链路能帮你理解：
+这条线对应的是:
 
-- 扩展是怎么启动后端的
-- SDK 是怎么建立连接的
-- SSE 事件是怎么分发给 webview 的
-- 前端状态是怎么组织的
+扩展装配 -> 启动 CLI backend -> 建立 SDK/SSE 连接 -> 分发到 webview UI
 
-## Web / UI 主线怎么读
+## Kilo 差异主链
 
-### `packages/app/`
+如果你要看 Kilo 和 upstream 的真正差异，请先抓:
 
-共享前端，适合理解浏览器端如何连接服务端：
+1. `packages/opencode/src/index.ts`
+2. `packages/opencode/src/server/server.ts`
+3. `packages/opencode/src/config/config.ts`
+4. `packages/opencode/src/kilocode/`
+5. `packages/kilo-gateway/src/`
+6. `packages/kilo-telemetry/src/`
 
-- `packages/app/src/entry.tsx`
-- `packages/app/src/context/server.tsx`
-- `packages/app/src/context/`
-- `packages/app/src/components/`
+要特别留意:
 
-### `packages/kilo-ui/`
+- `kilocode_change` 注释
+- legacy Kilocode 配置迁移
+- `createKiloRoutes(...)`
+- `Telemetry.init(...)`
+- `fetchOrganizationModes(...)`
 
-这是 Kilo UI 组件库，适合理解视觉和交互层复用：
+## 二次开发时最常见的 6 类需求和落点
 
-- `packages/kilo-ui/src/components/`
-- `packages/kilo-ui/src/context/`
-- `packages/kilo-ui/src/theme/`
+### 新增一个工具或改工具行为
 
-## 初学者不要一开始就钻进去的地方
+先看:
 
-- `packages/ui/`
-  体量很大，而且不是你理解主链路的第一站
-- `packages/kilo-docs/`
-  先不影响你读运行时
-- `packages/desktop/`
-  等你理解 `app + sdk + server` 再看
-- 大量测试目录
-  先围绕主链路阅读，第二轮再借测试补理解
-
-## 推荐的源码阅读顺序
-
-### 第一轮
-
-- `packages/opencode/src/index.ts`
-- `packages/opencode/src/cli/cmd/serve.ts`
-- `packages/opencode/src/server/server.ts`
-- `packages/opencode/src/project/instance.ts`
-- `packages/opencode/src/session/index.ts`
-- `packages/opencode/src/agent/agent.ts`
+- `packages/opencode/src/tool/`
 - `packages/opencode/src/tool/registry.ts`
+- `packages/opencode/src/agent/agent.ts`
+- `packages/opencode/src/permission/next.ts`
 
-目标：
+### 新增一个服务端接口
 
-你能说清楚“一个客户端请求是怎么一路走到 Agent 和 Tool 的”。
+先看:
 
-### 第二轮
+- `packages/opencode/src/server/routes/`
+- `packages/opencode/src/server/server.ts`
+- `packages/sdk/js/`
 
-- `packages/opencode/src/config/config.ts`
-- `packages/opencode/src/project/project.ts`
-- `packages/opencode/src/storage/db.ts`
-- `packages/opencode/src/session/processor.ts`
-- `packages/opencode/src/provider/provider.ts`
+如果改了 server endpoint，记得看 AGENTS 里的 SDK regen 约束。
 
-目标：
+### 调整 Agent 行为边界
 
-你能说清楚“配置、项目识别、数据库、会话处理、模型调用”是怎么拼起来的。
+先看:
 
-### 第三轮
+- `packages/opencode/src/agent/agent.ts`
+- `packages/opencode/src/permission/next.ts`
+- 相关 prompt 文件
+
+### 扩展端新增一个交互能力
+
+先看:
 
 - `packages/kilo-vscode/src/extension.ts`
 - `packages/kilo-vscode/src/services/cli-backend/`
-- `packages/kilo-vscode/webview-ui/src/App.tsx`
-- `packages/sdk/js/src/client.ts`
-- `packages/kilo-gateway/src/index.ts`
+- `packages/kilo-vscode/webview-ui/`
 
-目标：
+### Kilo 平台能力改动
 
-你能说清楚“VS Code 扩展为什么只是客户端，它怎么和核心运行时通信”。
+先看:
 
-## 开发命令地图
+- `packages/kilo-gateway/`
+- `packages/kilo-telemetry/`
+- `packages/opencode/src/kilocode/`
 
-根目录常用命令：
+### 文档或 source links 相关
 
-```bash
-bun run dev
-bun run extension
-bun turbo typecheck
-```
+先看:
 
-CLI 包常用命令：
+- `packages/kilo-docs/`
+- 仓库根 `AGENTS.md` 里关于 source links 的命令
 
-```bash
-cd packages/opencode
-bun run dev
-bun test
-```
+## 学这份地图时的最低输出要求
 
-扩展包常用命令：
+你至少要能自己画出:
 
-```bash
-cd packages/kilo-vscode
-bun run extension
-bun run typecheck
-```
+- 仓库四层结构图
+- 请求主链图
+- VS Code 扩展接入图
+- Kilo 差异层图
 
-## 读源码时最该问自己的问题
-
-- 这个模块是入口、编排层、能力层，还是存储层
-- 它依赖谁
-- 谁会调用它
-- 它的数据从哪里来，到哪里去
-- 它是 Kilo 特有能力，还是 upstream 原有能力
-
-如果你始终围绕这 5 个问题读，大仓库也会慢慢变清楚。
+如果这 4 张图你画不出来，后面的二开基本还会继续凭感觉。

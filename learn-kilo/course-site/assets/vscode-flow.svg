@@ -1,0 +1,29 @@
+<svg width="800" height="520" viewBox="0 0 800 520" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="520" rx="28" fill="#FFF9F2"/>
+  <text x="40" y="58" fill="#1F2430" font-size="30" font-family="Georgia, Noto Serif SC, serif" font-weight="700">VS Code 扩展连接图</text>
+  <rect x="48" y="110" width="200" height="96" rx="22" fill="#EEF3FB" stroke="#1D4F91" stroke-width="2"/>
+  <text x="72" y="146" fill="#1D4F91" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">extension host</text>
+  <text x="72" y="176" fill="#1F2430" font-size="16" font-family="Segoe UI, Microsoft YaHei, sans-serif">extension.ts</text>
+  <text x="72" y="198" fill="#5D6472" font-size="14" font-family="Segoe UI, Microsoft YaHei, sans-serif">装配 provider、service、command</text>
+  <rect x="298" y="110" width="200" height="96" rx="22" fill="#F2F9F8" stroke="#0D6B5D" stroke-width="2"/>
+  <text x="322" y="146" fill="#0D6B5D" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">ServerManager</text>
+  <text x="322" y="176" fill="#1F2430" font-size="16" font-family="Segoe UI, Microsoft YaHei, sans-serif">拉起 `kilo serve --port 0`</text>
+  <text x="322" y="198" fill="#5D6472" font-size="14" font-family="Segoe UI, Microsoft YaHei, sans-serif">管理本地后端进程生命周期</text>
+  <rect x="548" y="110" width="200" height="96" rx="22" fill="#FFF4ED" stroke="#C8642D" stroke-width="2"/>
+  <text x="572" y="146" fill="#C8642D" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">CLI backend</text>
+  <text x="572" y="176" fill="#1F2430" font-size="16" font-family="Segoe UI, Microsoft YaHei, sans-serif">kilo serve</text>
+  <text x="572" y="198" fill="#5D6472" font-size="14" font-family="Segoe UI, Microsoft YaHei, sans-serif">核心运行时与 Hono Server</text>
+  <rect x="172" y="286" width="260" height="112" rx="22" fill="#FFFFFF" stroke="#D7D2C7" stroke-width="2"/>
+  <text x="196" y="322" fill="#1F2430" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">KiloConnectionService</text>
+  <text x="196" y="352" fill="#5D6472" font-size="15" font-family="Segoe UI, Microsoft YaHei, sans-serif">共享 SDK、SSE、状态广播</text>
+  <text x="196" y="376" fill="#5D6472" font-size="15" font-family="Segoe UI, Microsoft YaHei, sans-serif">多 webview / 多 panel 共享同一连接</text>
+  <rect x="470" y="286" width="260" height="112" rx="22" fill="#F6F1FB" stroke="#7A4DA6" stroke-width="2"/>
+  <text x="494" y="322" fill="#7A4DA6" font-size="18" font-family="Segoe UI, Microsoft YaHei, sans-serif" font-weight="700">webview / Agent Manager</text>
+  <text x="494" y="352" fill="#5D6472" font-size="15" font-family="Segoe UI, Microsoft YaHei, sans-serif">UI 展示、交互承接、多 session 编排</text>
+  <text x="494" y="376" fill="#5D6472" font-size="15" font-family="Segoe UI, Microsoft YaHei, sans-serif">不是独立后端，而是共享连接上的能力</text>
+  <path d="M248 158H298" stroke="#1D4F91" stroke-width="4" stroke-linecap="round"/>
+  <path d="M498 158H548" stroke="#0D6B5D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M398 206V286" stroke="#0D6B5D" stroke-width="4" stroke-linecap="round"/>
+  <path d="M470 342H432" stroke="#7A4DA6" stroke-width="4" stroke-linecap="round"/>
+  <path d="M548 342H432" stroke="#C8642D" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 10"/>
+</svg>

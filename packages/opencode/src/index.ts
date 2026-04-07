@@ -68,9 +68,9 @@ process.on("uncaughtException", (e) => {
   })
 })
 
-// Ensure the process exits on terminal hangup (eg. closing the terminal tab).
-// Without this, long-running commands like `serve` block on a never-resolving
-// promise and survive as orphaned processes.
+//确保进程在终端挂起时退出（例如关闭终端选项卡）。
+//如果没有这个，像 `serve` 这样的长时间运行的命令就会阻塞在一个永远无法解决的问题上
+//承诺并作为孤立进程生存。
 process.on("SIGHUP", () => process.exit())
 
 let cli = yargs(hideBin(process.argv))
@@ -263,9 +263,9 @@ try {
 
   await Instance.disposeAll() // kilocode_change - safety net disposal (no-op if already disposed)
 
-  // Some subprocesses don't react properly to SIGTERM and similar signals.
-  // Most notably, some docker-container-based MCP servers don't handle such signals unless
-  // run using `docker run --init`.
-  // Explicitly exit to avoid any hanging subprocesses.
+  //某些子进程无法对 SIGTERM 和类似信号做出正确反应。
+  //最值得注意的是，一些基于 docker-container 的 MCP 服务器不会处理此类信号，除非
+  //使用 `docker run --init` 运行。
+  //显式退出以避免任何挂起的子进程。
   process.exit()
 }

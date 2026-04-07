@@ -38,6 +38,15 @@ export const KiloClawNav: NavSection[] = [
         ],
       },
       {
+        href: "/kiloclaw/triggers",
+        children: "Triggers",
+        subLinks: [
+          { href: "/kiloclaw/triggers", children: "Overview" },
+          { href: "/kiloclaw/triggers/webhooks", children: "Webhooks" },
+          { href: "/kiloclaw/triggers/scheduled", children: "Scheduled" },
+        ],
+      },
+      {
         href: "/kiloclaw/tools",
         children: "Tools",
         subLinks: [

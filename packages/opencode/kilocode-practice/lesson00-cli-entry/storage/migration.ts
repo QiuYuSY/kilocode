@@ -23,7 +23,7 @@ export namespace Migration {
 
   export async function run(input: { progress: (event: Event) => void }) {
     // 用几个很短的步骤模拟真实项目里的启动迁移流程。
-    const steps = ["scan", "copy", "finalize"] as const
+    const steps = ["scan", "copy", "verify", "finalize"] as const
 
     for (const [idx, label] of steps.entries()) {
       input.progress({
@@ -31,12 +31,12 @@ export namespace Migration {
         total: steps.length,
         label,
       })
-      await Bun.sleep(30)
+      await Bun.sleep(300)
     }
 
     // 迁移完成后，把一个最小数据库文件落到 .runtime 里，后续 inspect 会直接读取它。
     const db: Db = {
-      version: 1,
+      version: 2,
       tasks: [
         { id: 1, title: "read index.ts", done: true },
         { id: 2, title: "trace the middleware flow", done: false },

@@ -1,6 +1,7 @@
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
 import { HelloCommand } from "./cli/cmd/hello"
+import { ByeCommand } from "./cli/cmd/bye"
 import { InspectCommand } from "./cli/cmd/inspect"
 import { ExplodeCommand } from "./cli/cmd/explode"
 import { UI } from "./cli/ui"
@@ -59,6 +60,10 @@ let cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("profile", {
+    describe: "profile",
+    type: "string",
+  })
   .middleware(async (opts) => {
     // 这段 middleware 会在任何子命令执行前统一运行。
     await Log.init({
@@ -76,6 +81,10 @@ let cli = yargs(hideBin(process.argv))
     Log.Default.info("boot", {
       version: process.env[ENV_VERSION],
       args: process.argv.slice(2),
+    })
+
+    Log.Default.info("profile", {
+      profile: opts.profile
     })
 
     const cfg = await Config.getGlobal()
@@ -119,6 +128,7 @@ let cli = yargs(hideBin(process.argv))
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")
   .command(HelloCommand)
+  .command(ByeCommand)
   .command(InspectCommand)
   .command(ExplodeCommand)
 

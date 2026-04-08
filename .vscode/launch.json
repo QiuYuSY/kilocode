@@ -5,6 +5,7 @@
 {
   "version": "0.2.0",
   "configurations": [
+      
     {
       "name": "VSCode - Run Extension",
       "type": "extensionHost",
@@ -23,6 +24,52 @@
       "env": {
         "KILO_API_URL": "http://localhost:3000"
       }
+    },
+    {
+      "name": "Bun - Launch lesson00 inspect --bad",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts",
+      "args": ["inspect", "--bad"],
+      "cwd": "${workspaceFolder}",
+      "runtime": "bun",
+      "stopOnEntry": true
+    },
+    {
+      "name": "Bun - Launch lesson00 inspect",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts",
+      "args": ["inspect"],
+      "cwd": "${workspaceFolder}",
+      "runtime": "bun",
+      "stopOnEntry": true
+    },
+    {
+      "name": "Bun - Launch lesson00 hello",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts",
+      "args": ["hello", "--name", "qiuyu", "--print-logs"],
+      "cwd": "${workspaceFolder}",
+      "runtime": "bun",
+      "stopOnEntry": true
+    },
+    {
+      "name": "Bun - Launch lesson00 explode",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts",
+      "args": ["explode"],
+      "cwd": "${workspaceFolder}",
+      "runtime": "bun",
+      "stopOnEntry": true
+    },
+    {
+      "name": "Bun - Attach",
+      "type": "bun",
+      "request": "attach",
+      "url": "ws://localhost:6499/lesson00"
     }
   ]
 }

@@ -18,8 +18,8 @@
 
 ## 实践产物放在哪里
 
-- 学习说明在 [README.md](d:/Code/kilocode/Kilo学习/实践/第00课-CLI入口闭环实战/README.md)
-- 真正可运行的 demo 在 [index.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts)
+- 学习说明在 [README.md](README.md)
+- 真正可运行的 demo 在 [index.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts)
 
 这个位置是专门的练习目录：
 
@@ -88,6 +88,14 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" hello --na
 2. 为什么 `pid` 能在 `hello` 命令里直接读到
 3. 为什么退出时还有 `cleanup`
 
+### 参考答案
+
+建议先自己回答一遍，再对照下面：
+
+1. 因为根入口在 `index.ts` 里注册了 `middleware`，`await cli.parse()` 后会先执行这段共享启动逻辑，再进入 `hello` 的 `handler`。所以 `Log.init`、`Telemetry.init`、auth 迁移、demo migration 都已经先完成了。
+2. 因为 `middleware` 里提前写了 `process.env.LESSON00_PID = String(process.pid)`，而 `hello.ts` 里的 `handler` 还是同一个进程，直接读同一个 `process.env` 就能拿到。
+3. 因为 `middleware` 里通过 `Instance.add(...)` 注册了清理动作，最后无论命令成功还是失败，`finally` 都会执行 `Instance.disposeAll()`，所以退出前还会看到 `cleanup` 日志。
+
 ### 这一轮对应第00课的知识点
 
 - 入口文件只做装配
@@ -122,6 +130,14 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect
 2. `demo-db.json` 是什么时候生成的
 3. 为什么这些初始化不放在 `hello` 命令自己里面做
 
+### 参考答案
+
+建议先自己回答一遍，再对照下面：
+
+1. 旧 auth 是从 `fixtures/legacy-auth.json` 迁过来的。`migrateLegacyAuth()` 会读取这个旧文件，再把内容转成新格式写到 `.runtime/auth.json`。
+2. `demo-db.json` 是启动期生成的，不是 `inspect` 命令现建的。根入口的 `middleware` 会先检查 `Migration.exists()`，如果数据库文件还不存在，就执行 `Migration.run()`，最后把最小 demo 数据库写到 `.runtime/demo-db.json`。
+3. 因为这不是 `hello` 独有的前置条件，而是所有命令共享的基础设施。把它们统一放在入口层，`hello`、`inspect`、后面新增的命令都能直接复用，也避免每个命令各自处理迁移和兼容逻辑。
+
 ### 这一轮对应第00课的知识点
 
 - 启动期迁移
@@ -150,6 +166,14 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 1. 是谁发现了 `--bad` 这个参数不合法
 2. 是谁决定把 help 打出来
 3. 如果没有 `.fail(...)`，用户体验会差在哪里
+
+### 参考答案
+
+建议先自己回答一遍，再对照下面：
+
+1. 是 `yargs` 的 `.strict()` 发现了 `--bad` 不合法。它负责做严格参数校验，未知参数会在这里被拦下来。
+2. 是根入口里自定义的 `.fail((msg, err) => { ... })` 决定先把当前命令的 help 打出来，再把错误信息输出到终端。
+3. 如果没有 `.fail(...)`，用户通常只能看到一条参数错误，而看不到就地的 help，得自己回头查命令用法。这样错误虽然被发现了，但收口不友好，用户很难立刻知道下一步该怎么改。
 
 ### 这一轮对应第00课的知识点
 
@@ -189,6 +213,14 @@ Get-Content "packages/opencode/kilocode-practice/lesson00-cli-entry/.runtime/tel
 1. 为什么 `catch` 里不直接 `process.exit(1)`
 2. 为什么只先设置 `process.exitCode = 1`
 3. 为什么 `finally` 一定要跑
+
+### 参考答案
+
+建议先自己回答一遍，再对照下面：
+
+1. 因为如果在 `catch` 里直接 `process.exit(1)`，进程会立刻结束，后面的统一清理很可能来不及执行。那样 `Telemetry.trackCliExit()`、`Telemetry.shutdown()`、`Instance.disposeAll()` 这一整套退出动作就会被跳过。
+2. 先设置 `process.exitCode = 1`，等于先把“本次执行失败”这个结果记下来，但控制流仍然继续往下走，让 `finally` 还有机会把日志、telemetry 和清理动作完整跑完。
+3. 因为 `finally` 是整个 CLI 生命周期最后的统一收口点。成功时它要跑，失败时它更要跑；不然退出行为会依赖命令路径是否报错，整个入口就不再完整闭环了。
 
 ### 这一轮对应第00课的知识点
 
@@ -245,6 +277,21 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" hello --na
 bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --profile prod
 ```
 
+### 参考答案
+
+做完后，代码应该接近下面这个思路：
+
+1. 在根入口上加 `.option("profile", { ... })`，而不是加到 `hello.ts` 或 `inspect.ts` 里。因为场景 6 练的是“根级选项”，目标就是让所有命令都天然共享它。
+2. 在 `middleware` 里读 `opts.profile`，并且在 `Log.init(...)` 之后用日志系统记录它，比如 `Log.Default.info("profile", { profile: opts.profile })`。
+3. 不要直接用 `console.log` 打 `profile`。因为 `console.log` 会污染标准输出，像 `inspect` 这种本来应该只输出 JSON 的命令就会被破坏。
+
+你做完后的正确现象应该是：
+
+- `hello --profile dev` 能正常执行
+- `inspect --profile prod` 能正常执行
+- `demo.log` 里能看到一条带 `profile` 的日志
+- `inspect` 的标准输出依然保持纯 JSON
+
 ### 这一步在练什么
 
 - 根 CLI 配置
@@ -259,7 +306,7 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 
 ### 你要做的事
 
-1. 打开 [migration.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/storage/migration.ts)
+1. 打开 [migration.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/storage/migration.ts)
 2. 给 `steps` 再加一步，比如 `verify`
 3. 同时把最终写入的 `db.version` 改成 `2`
 
@@ -270,6 +317,26 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 3. 观察输出里是否多了一步迁移
 4. 再跑 `inspect`
 5. 看 `db.version` 是否变成 `2`
+
+### 参考答案
+
+做完后，代码应该接近下面这个思路：
+
+1. 打开 `storage/migration.ts`，把 `steps` 从 `["scan", "copy", "finalize"]` 改成 `["scan", "copy", "verify", "finalize"]`。
+2. 把最终写入数据库的 `version` 从 `1` 改成 `2`。
+3. 改完后一定要先删掉 `.runtime`。因为根入口会先检查 `Migration.exists()`；只要旧的 `demo-db.json` 还在，迁移就不会重新跑。
+
+你做完后的正确现象应该是：
+
+- 第一次重跑 `hello` 时，会重新出现启动迁移
+- 终端里会看到 `migration 1/4 scan`、`migration 2/4 copy`、`migration 3/4 verify`、`migration 4/4 finalize`
+- 再跑 `inspect` 时，输出里的 `db.version` 会变成 `2`
+
+这一步真正想让你理解的是：
+
+- 入口层负责“什么时候跑迁移、怎么显示进度”
+- 迁移模块负责“迁移有哪些步骤、最终写出什么数据”
+- 所以新增一步迁移时，通常只改迁移模块，不用改每个命令
 
 ### 这一步在练什么
 
@@ -294,6 +361,27 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 - `FormatError` 是否还能识别
 - `demo.log` 里记录的结构化字段有什么差别
 
+### 参考答案
+
+做完后，代码应该接近下面这个思路：
+
+1. 先把 `explode.ts` 里的 `throw new NamedError(...)` 临时改成 `throw new Error("plain boom")`。
+2. 再跑一遍 `explode`，观察终端输出和 `demo.log`。
+3. 看完后记得把代码改回 `NamedError`，因为这个场景的重点是对比，不是永久改成普通错误。
+
+你做完后的正确现象应该是：
+
+- 终端输出会从 `[DemoExplode] Intentional demo error` 变成更普通的 `plain boom`
+- `FormatError` 依然能识别这是一个 `Error`，所以还能给用户输出错误消息
+- 但它不再有 `NamedError` 的名字和附加数据，所以显示信息会更“平”
+- `demo.log` 里原本来自 `NamedError.toObject()` 的 `tip` 等结构化字段会消失，只会剩下普通 `Error` 的 `name`、`message`、`stack`
+
+这一步真正想让你理解的是：
+
+- `NamedError` 适合承载“给用户看的名字”和“给日志系统的结构化数据”
+- 普通 `Error` 也能被兜底处理，但表达力更弱
+- 所以 `catch` 里的错误整理其实分成两层：一层给用户显示，一层给日志保留细节
+
 ### 这一步在练什么
 
 - `catch` 里的错误整理
@@ -311,13 +399,13 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 
 ## 参考代码入口
 
-- [index.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts)
-- [hello.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/hello.ts)
-- [inspect.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/inspect.ts)
-- [explode.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/explode.ts)
-- [log.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/util/log.ts)
-- [telemetry/index.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/telemetry/index.ts)
-- [migration.ts](d:/Code/kilocode/packages/opencode/kilocode-practice/lesson00-cli-entry/storage/migration.ts)
+- [index.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts)
+- [hello.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/hello.ts)
+- [inspect.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/inspect.ts)
+- [explode.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/explode.ts)
+- [log.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/util/log.ts)
+- [telemetry/index.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/telemetry/index.ts)
+- [migration.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/storage/migration.ts)
 
 ## 一句话总结
 

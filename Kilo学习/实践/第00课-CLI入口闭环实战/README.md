@@ -27,6 +27,58 @@
 - 不放在 `src/` 里，避免和正式源码贴太近
 - 后续其他实践也可以继续放在 `packages/opencode/kilocode-practice/`
 
+## 使用说明
+
+这份实践 README 对应的是“可反复使用的练习目录”，不保证你的工作区永远处在“初始未完成状态”。
+
+也就是说，像下面这些内容：
+
+- `bye` 命令
+- 根级 `--profile`
+
+如果你之前已经做过，它们现在就可能已经存在于 demo 代码里。
+
+遇到这种情况，不要把它理解成“文档错了”，而要理解成：
+
+- 这道题你已经做过一轮了
+- 现在可以把它当成复盘题、验收题、讲解题
+
+具体做法可以选一种：
+
+1. 直接阅读当前实现，再用自己的话解释它为什么这样接到根入口
+2. 如果你想重新练一遍，再把它临时删掉后重做
+3. 如果你不想改回旧状态，就把同类练习换个名字再做一次，比如把 `bye` 换成 `welcome`
+
+## 这份 demo 和真实仓库源码的关系
+
+这个实践 demo 的目标是教学闭环，不是 1:1 复刻当前 `packages/opencode/src/index.ts`。
+
+所以它和真实源码的关系是：
+
+- 核心结构对齐
+- 细节实现允许简化
+
+目前它和真实仓库已经对齐的重点是：
+
+- 根入口装配思路
+- `middleware` 统一初始化
+- `.command(...)` 命令注册
+- `.strict()` / `.fail(...)` 参数错误收口
+- `try/catch/finally` 最终收口
+- 启动期迁移
+- telemetry 与退出清理
+
+但它和当前真实源码也有一些刻意保留的差异，比如：
+
+- demo 里仍保留了 `process.on("SIGHUP", ...)` 这一类更直观的入口兜底写法
+- demo 里仍使用 `.usage("\n" + UI.logo())`
+- demo 还没有完全复刻真实源码里的 `show()` 帮助输出包装
+- demo 没有引入真实源码中的 `--pure`、`Heap.start()` 等额外细节
+
+所以学习时请把它理解成：
+
+- 一份为了看清“入口编排模式”而简化过的练习工程
+
 ## 你做完后应该真正掌握什么
 
 完成这轮后，你应该能用自己的话说清楚：
@@ -228,7 +280,7 @@ Get-Content "packages/opencode/kilocode-practice/lesson00-cli-entry/.runtime/tel
 - 结构化错误日志
 - 退出前统一清理
 
-## 场景 5：第一次自己改代码，加一个 `bye` 命令
+## 场景 5：回顾练习，给根入口接入一个 `bye` 命令
 
 ### 目标
 
@@ -236,14 +288,23 @@ Get-Content "packages/opencode/kilocode-practice/lesson00-cli-entry/.runtime/tel
 
 ### 你要做的事
 
+如果你的当前目录里还没有 `bye`，就按下面步骤新做一遍：
+
 1. 参考 `hello.ts` 新建一个 `bye.ts`
 2. 支持 `--name`
 3. 输出 `bye, <name>`
 4. 在根入口里把它用 `.command(ByeCommand)` 接进去
 
+如果你的当前目录里已经有 `bye`，这题就改成复盘：
+
+1. 打开 [bye.ts](../../../packages/opencode/kilocode-practice/lesson00-cli-entry/cli/cmd/bye.ts)
+2. 找到根入口里 `.command(ByeCommand)` 的注册位置
+3. 用自己的话解释：`builder`、`handler`、根入口注册分别负责什么
+4. 如果你还想再做一遍，就改成新增一个同类型命令，比如 `welcome`
+
 ### 你做完后的验收
 
-下面命令能跑通就算完成：
+下面命令能跑通，或者你能清楚讲出它是怎样接进根入口的，都算完成：
 
 ```bash
 bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" bye --name qiuyu
@@ -256,7 +317,7 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" bye --name
 - `handler`
 - 根入口的命令注册
 
-## 场景 6：给根 CLI 增加一个全局选项
+## 场景 6：回顾练习，给根 CLI 增加一个全局选项
 
 ### 目标
 
@@ -264,13 +325,22 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" bye --name
 
 ### 你要做的事
 
+如果你的当前目录里还没有 `--profile`，就按下面步骤新做一遍：
+
 1. 在根入口增加 `--profile`
 2. 让它成为所有命令共享的根级选项
 3. 在 `middleware` 里把这个值打印到日志里
 
+如果你的当前目录里已经有 `--profile`，这题就改成复盘：
+
+1. 找到根入口里 `.option("profile", { ... })`
+2. 找到 `middleware` 里记录 `profile` 的日志位置
+3. 用自己的话解释：为什么它必须定义在根入口，而不是定义在 `hello.ts` 里
+4. 如果你还想再做一遍，就换一个根级选项名，比如 `--mode`
+
 ### 你做完后的验收
 
-下面两条命令都应该能带上 `--profile`：
+下面两条命令都应该能带上 `--profile`，或者你能清楚解释它为什么属于“根级选项”，都算完成：
 
 ```bash
 bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" hello --name qiuyu --profile dev
@@ -297,6 +367,31 @@ bun "packages/opencode/kilocode-practice/lesson00-cli-entry/index.ts" inspect --
 - 根 CLI 配置
 - 全局选项和命令内选项的差别
 - `middleware` 为什么适合处理共享启动逻辑
+
+## 场景 6.5：可选加练，让 demo 更贴近真实仓库
+
+### 目标
+
+如果你已经完成过前面的基础练习，可以选做一题，把这个 demo 再往真实仓库靠近一点。
+
+### 你要做的事
+
+下面两个方向任选一个：
+
+1. 给 demo 增加一个根级 `--pure` 选项，并在 `middleware` 里把它写进环境变量
+2. 给 demo 增加一个 `show()` 帮助输出包装函数，把 help 输出方式做成和真实入口更像
+
+### 你做完后的验收
+
+任选其一满足即可：
+
+1. `hello --pure` 能跑通，而且命令里能观察到对应环境变量
+2. `--help` 或参数错误时，帮助输出展示方式发生了你预期的变化
+
+### 这一步在练什么
+
+- 把练习工程和真实仓库主线继续对齐
+- 观察“入口编排模式”和“具体产品细节”之间的关系
 
 ## 场景 7：扩展一次启动迁移
 

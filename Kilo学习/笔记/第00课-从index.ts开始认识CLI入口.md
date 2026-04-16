@@ -2,11 +2,12 @@
 
 ## 本课目标
 
-从项目真正的入口文件开始，学习：
+从项目真正的入口文件开始，学习 4 件事：
 
-1. TypeScript 入口文件长什么样
-2. 为什么大型项目的入口一开始几乎全是 `import`
-3. 这个项目怎样把命令、日志、遥测、迁移和退出清理装配成一个 CLI
+1. 大型 TypeScript CLI 的入口文件长什么样
+2. 为什么入口文件主要负责装配，而不是直接写业务
+3. 当前 `index.ts` 是怎样把参数、帮助输出、共享初始化、命令注册、错误收口、退出清理串起来的
+4. 为什么下一步应该沿真实调用链进入 `serve.ts`
 
 ## 本课代码入口
 
@@ -16,7 +17,7 @@
 
 这一课只精读 `packages/opencode/src/index.ts`。
 
-如果中途提到别的模块，也只是为了帮助理解当前代码，不展开读实现。
+如果中途提到别的模块，也只是为了帮助理解当前文件在“调用谁”，不展开读具体实现。
 
 ## 第一段：入口文件开头为什么几乎全是 `import`
 
@@ -28,7 +29,7 @@ import { hideBin } from "yargs/helpers"
 import { RunCommand } from "./cli/cmd/run"
 import { GenerateCommand } from "./cli/cmd/generate"
 import { Log } from "./util/log"
-import { AuthCommand } from "./cli/cmd/auth"
+import { ProvidersCommand } from "./cli/cmd/providers"
 import { AgentCommand } from "./cli/cmd/agent"
 import { UpgradeCommand } from "./cli/cmd/upgrade"
 import { UninstallCommand } from "./cli/cmd/uninstall"
@@ -39,7 +40,7 @@ import { ModelsCommand } from "./cli/cmd/models"
 
 - `import yargs from "yargs"`
   - 这是默认导入
-  - 表示从 `yargs` 这个包里拿默认导出的值
+  - 表示从 `yargs` 包里拿默认导出的值
 
 - `import { hideBin } from "yargs/helpers"`
   - 这是命名导入
@@ -51,7 +52,7 @@ import { ModelsCommand } from "./cli/cmd/models"
 
 ### 运行时理解
 
-这一段还没有进入真正的命令执行，它在做启动前的依赖装配。
+这一段还没有真正开始执行命令，它在做启动前的依赖装配。
 
 ### 设计意图
 
@@ -65,114 +66,56 @@ import { ModelsCommand } from "./cli/cmd/models"
 
 这就是组合根思路。
 
-## 第二段：为什么 `./auth`、`./global` 这样写就能导入
+## 第二段：入口层最容易看出这个 fork 新加了什么
 
 ### 代码
 
 ```ts
-import { Config } from "./config/config"
-import { Auth } from "./auth"
-import { Global } from "./global"
-```
-
-### TS / 模块解析解释
-
-- `./config/config`
-  - 这是直接指向具体文件
-
-- `./auth`
-  - 这不是单个文件名
-  - 它会解析到 `src/auth/index.ts`
-
-- `./global`
-  - 同理，会解析到 `src/global/index.ts`
-
-### 运行时理解
-
-当 Node/Bun 看到导入路径是一个目录时，会优先去找这个目录里的 `index.ts` 或 `index.js`。
-
-### 设计意图
-
-这是一种很常见的大型项目组织方式：
-
-- 一个目录代表一个模块
-- `index.ts` 作为该模块的公共入口
-
-这样做的好处是：
-
-- 模块内部可以拆成很多文件
-- 对外导入路径仍然保持简洁
-
-## 第三段：为什么入口一开始还导入了很多 `*Command`
-
-### 代码
-
-```ts
-import { ServeCommand } from "./cli/cmd/serve"
-import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
-import { DebugCommand } from "./cli/cmd/debug"
-import { StatsCommand } from "./cli/cmd/stats"
-import { McpCommand } from "./cli/cmd/mcp"
-import { ExportCommand } from "./cli/cmd/export"
-import { ImportCommand } from "./cli/cmd/import"
-import { PrCommand } from "./cli/cmd/pr"
-import { SessionCommand } from "./cli/cmd/session"
+import { ConfigCommand as ConfigCLICommand } from "./cli/cmd/config"
 import { RemoteCommand } from "./cli/cmd/remote"
-```
-
-### 运行时理解
-
-这些导入说明：
-
-- `index.ts` 是整个 CLI 的总入口
-- `serve`、`session`、`mcp`、`auth` 这些都是它的子命令
-
-### 设计意图
-
-这说明这个 CLI 不是单功能工具，而是一个命令平台。
-
-你可以先把它理解成：
-
-- `kilo`
-- `kilo serve`
-- `kilo session`
-- `kilo auth`
-- `kilo mcp`
-
-入口文件的工作，就是把这些命令模块统一注册到同一个命令系统里。
-
-## 第四段：Kilo 自己加的能力也会在入口层接入
-
-### 代码
-
-```ts
 import { Telemetry } from "@kilocode/kilo-telemetry"
 import { Instance } from "./project/instance"
 import { migrateLegacyKiloAuth, ENV_FEATURE, ENV_VERSION } from "@kilocode/kilo-gateway"
+import { createHelpCommand } from "./kilocode/help-command"
 ```
 
 ### TS 语法解释
+
+- `ConfigCommand as ConfigCLICommand`
+  - `as`
+  - 这里表示“导入后改个本地名字”
+  - 原始导出名是 `ConfigCommand`，在当前文件里用 `ConfigCLICommand`
 
 - `@kilocode/kilo-telemetry`
   - 这不是相对路径
   - 这是 monorepo 里的内部包
 
 - `@kilocode/kilo-gateway`
-  - 也是 monorepo 里的内部包
+  - 也是 monorepo 内部包
   - 说明这个仓库不是只有 `packages/opencode`
 
 ### 运行时理解
 
-入口文件不只装配 upstream 原本就有的 CLI 能力，也装配 Kilo 这条 fork 自己新增的平台能力。
+入口文件通常最容易看出：
+
+- 上游原本的能力有哪些
+- fork 额外加了哪些平台能力
+
+这里能看到 Kilo 自己接入了：
+
+- telemetry
+- 旧鉴权迁移
+- 自定义 help 命令
+- Kilo 自己的 config / remote 等命令
 
 ### 设计意图
 
-入口文件通常最容易看出：
+入口层就是整个 CLI 的“总装配点”，所以最适合观察：
 
-- 这个 fork 新加了什么
-- 这些新能力插在启动流程的哪个位置
+- 哪些能力属于公共基础设施
+- 哪些能力属于 fork 扩展
 
-## 第五段：`ENV_FEATURE` 和 `ENV_VERSION` 在做什么
+## 第三段：一启动就先给整个进程打元信息
 
 ### 代码
 
@@ -194,7 +137,7 @@ if (!process.env[ENV_VERSION]) {
 
 - `!process.env[ENV_FEATURE]`
   - `!` 表示取反
-  - 意思是“如果这个环境变量现在还没被设置”
+  - 意思是“如果现在这个环境变量还没被设置”
 
 - `isServe ? "unknown" : "cli"`
   - 这是三元表达式
@@ -206,8 +149,13 @@ if (!process.env[ENV_VERSION]) {
 
 它先给整个进程打两类元信息：
 
-- 当前这次启动的 feature 来源是什么
+- 当前这次启动来自哪个 feature
 - 当前 CLI 版本是什么
+
+而且这里特别区分了：
+
+- 普通 CLI 命令，记成 `cli`
+- `serve` 命令，如果外部没传 feature，就记成 `unknown`
 
 ### 设计意图
 
@@ -219,24 +167,22 @@ if (!process.env[ENV_VERSION]) {
 
 也就是说，入口文件先替整个进程准备“元信息”。
 
-## 第六段：进程级错误处理和信号兜底
+## 第四段：进程级错误监听先挂上，但这里只做最基础的兜底
 
 ### 代码
 
 ```ts
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
 
 process.on("uncaughtException", (e) => {
   Log.Default.error("exception", {
-    e: e instanceof Error ? e.message : e,
+    e: errorMessage(e),
   })
 })
-
-process.on("SIGHUP", () => process.exit())
 ```
 
 ### TS / JS 语法解释
@@ -244,38 +190,90 @@ process.on("SIGHUP", () => process.exit())
 - `process.on(...)`
   - 给当前 Node/Bun 进程注册事件监听
 
-- `e instanceof Error ? e.message : e`
-  - 这是三元表达式
-  - 如果 `e` 是 `Error`，就取 `message`
-  - 否则直接记录原值
-
-- `() => process.exit()`
-  - 这是一个很短的箭头函数
-  - 收到信号就直接退出进程
+- `errorMessage(e)`
+  - 这里不是直接手写 `e instanceof Error ? e.message : ...`
+  - 而是统一调用工具函数把错误转成更稳妥的文本
 
 ### 运行时理解
 
-这里处理了三类进程级问题：
+这里处理了两类进程级问题：
 
 1. 没被 `catch` 的 Promise 错误
 2. 没被捕获的异常
-3. 终端挂起或会话断开时的 `SIGHUP`
 
 ### 设计意图
 
-大型 CLI 很怕两种情况：
+大型 CLI 很怕一种情况：
 
 - 程序崩了，但没有日志
-- 终端关了，但后台还留着孤儿进程
 
-所以入口层先把这些最基础的兜底逻辑挂上。
+所以入口层先把最基础的错误兜底监听挂上。
 
-## 第七段：开始创建根 CLI 对象
+注意这里先不要和 `serve.ts` 里的信号退出混在一起。
+这一课只先记住：
+
+- `index.ts` 顶层负责最基本的进程级错误记录
+
+## 第五段：`args` 和 `show()` 在做什么
 
 ### 代码
 
 ```ts
-let cli = yargs(hideBin(process.argv))
+const args = hideBin(process.argv)
+
+function show(out: string) {
+  const text = out.trimStart()
+  if (!text.startsWith("opencode ")) {
+    process.stderr.write(UI.logo() + EOL + EOL)
+    process.stderr.write(text)
+    return
+  }
+  process.stderr.write(out)
+}
+```
+
+### TS / JS 语法解释
+
+- `hideBin(process.argv)`
+  - `process.argv` 是进程启动参数数组
+  - `hideBin(...)` 会把 bun/node 自己那部分参数去掉
+
+- `function show(out: string) { ... }`
+  - 这是普通函数声明
+  - `out: string` 表示参数类型是字符串
+
+- `text.startsWith("opencode ")`
+  - 判断字符串是否以某个前缀开头
+
+### 运行时理解
+
+这里做了两件事：
+
+1. 先把真正属于用户的参数取出来，后面交给 yargs
+2. 自定义帮助输出的展示方式
+
+`show()` 的逻辑是：
+
+- 如果帮助文本本身不是以 `opencode ` 开头
+- 就先补一个 `UI.logo()`
+- 再把帮助文本写到 `stderr`
+
+### 设计意图
+
+这说明当前入口文件不只是“注册 help”，还在定制：
+
+- help 最终怎么展示
+
+也就是说：
+
+- 参数解析层和终端展示层在这里接上了
+
+## 第六段：开始创建根 CLI 对象
+
+### 代码
+
+```ts
+let cli = yargs(args)
   .parserConfiguration({ "populate--": true })
   .scriptName("kilo")
   .wrap(100)
@@ -292,22 +290,25 @@ let cli = yargs(hideBin(process.argv))
     type: "string",
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
+  .option("pure", {
+    describe: "run without external plugins",
+    type: "boolean",
+  })
 ```
 
 ### TS / JS 语法解释
 
-- `yargs(hideBin(process.argv))`
-  - `process.argv` 是进程启动参数数组
-  - `hideBin(...)` 会把 bun/node 自己那部分参数去掉
-  - `yargs(...)` 则据此创建 CLI 解析器对象
+- `let cli = ...`
+  - 这里用了 `let`
+  - 因为后面还会继续给 `cli` 重新赋值
 
 - 链式调用
   - `.help(...).alias(...).version(...)`
   - 每一步都会返回可继续配置的对象，所以可以一直连着写
 
-- `let cli = ...`
-  - 这里用了 `let`
-  - 因为后面还会继续给 `cli` 重新赋值
+- `.option("pure", { ... })`
+  - 这是在根 CLI 上定义一个全局选项
+  - 它不是某个子命令私有的参数
 
 ### 逐个理解这些方法
 
@@ -320,36 +321,27 @@ let cli = yargs(hideBin(process.argv))
 
 - 作用：指定帮助信息里显示的命令名
 
-#### `.wrap(100)`
-
-- 作用：限制帮助输出的换行宽度
-
 #### `.help("help", "show help")`
 
 - 作用：注册 `--help`
-
-#### `.alias("help", "h")`
-
-- 作用：给 `help` 增加 `-h` 这个短别名
 
 #### `.version("version", "show version number", Installation.VERSION)`
 
 - 作用：注册 `--version`
 - 真正显示的版本号来自 `Installation.VERSION`
 
-#### `.alias("version", "v")`
+#### `.option("print-logs", ...)`
 
-- 作用：给 `version` 增加 `-v`
+- 作用：定义根级共享选项
 
-#### `.option("print-logs", { ... })`
+#### `.option("log-level", ...)`
 
-- 作用：定义根级选项
-- `type: "boolean"` 表示这是布尔开关
+- 作用：再定义一个根级共享选项
 
-#### `.option("log-level", { ... })`
+#### `.option("pure", ...)`
 
-- 作用：再定义一个根级选项
-- `choices` 表示只允许这些字符串值
+- 作用：声明一个“纯净模式”开关
+- 含义是：本次运行不要加载外部插件
 
 ### 运行时理解
 
@@ -365,12 +357,16 @@ let cli = yargs(hideBin(process.argv))
 
 这说明 `index.ts` 在做的不是业务执行，而是在搭整个 CLI 的公共外壳。
 
-## 第八段：`middleware` 前半段是所有命令共享的启动前逻辑
+## 第七段：`middleware` 前半段是所有命令共享的启动前逻辑
 
 ### 代码
 
 ```ts
 .middleware(async (opts) => {
+  if (opts.pure) {
+    process.env.KILO_PURE = "1"
+  }
+
   await Log.init({
     print: process.argv.includes("--print-logs"),
     dev: Installation.isLocal(),
@@ -380,6 +376,8 @@ let cli = yargs(hideBin(process.argv))
       return "INFO"
     })(),
   })
+
+  Heap.start()
 
   process.env.AGENT = "1"
   process.env.KILO = "1"
@@ -396,8 +394,8 @@ let cli = yargs(hideBin(process.argv))
 - `.middleware(async (opts) => { ... })`
   - 表示在真正执行具体命令前，先统一跑这段逻辑
 
-- `async`
-  - 表示函数里可以使用 `await`
+- `opts.pure`
+  - 这里的 `opts` 就是解析好的根级参数对象
 
 - `(() => { ... })()`
   - 这是立即执行函数
@@ -408,19 +406,15 @@ let cli = yargs(hideBin(process.argv))
   - 这是类型断言
   - 这里是在告诉 TypeScript：把这个值按 `Log.Level` 看待
 
-- `String(process.pid)`
-  - 把进程 ID 转成字符串
-
-- `process.argv.slice(2)`
-  - 取命令行参数数组里真正属于用户输入的那部分
-
 ### 运行时理解
 
-这里在每次执行任何 CLI 命令前都会做 3 件事：
+这里在每次执行任何 CLI 命令前都会先做这些事：
 
-1. 初始化日志系统
-2. 给当前进程打上 `AGENT`、`KILO`、`KILO_PID` 标记
-3. 记录一条启动日志，写下版本号和命令参数
+1. 如果传了 `--pure`，先给进程打上 `KILO_PURE=1`
+2. 初始化日志系统
+3. 启动 heap 监控
+4. 给当前进程打上 `AGENT`、`KILO`、`KILO_PID` 标记
+5. 记录一条启动日志
 
 ### 设计意图
 
@@ -431,8 +425,9 @@ let cli = yargs(hideBin(process.argv))
 - 每个命令不用自己初始化日志
 - 进程级标记集中设置
 - 启动审计集中记录
+- 插件模式、监控模式也能集中控制
 
-## 第九段：`middleware` 后半段在做平台级基础设施初始化
+## 第八段：`middleware` 后半段在做平台级基础设施初始化
 
 ### 代码
 
@@ -500,7 +495,7 @@ Telemetry.trackCliStart()
 
 这些都被视为每次 CLI 启动前就应该准备好的公共能力。
 
-## 第十段：数据库迁移检查为什么也放在入口里
+## 第九段：数据库迁移检查为什么也放在入口里
 
 ### 代码
 
@@ -509,9 +504,10 @@ const marker = path.join(Global.Path.data, "kilo.db")
 if (!(await Filesystem.exists(marker))) {
   const tty = process.stderr.isTTY
   process.stderr.write("Performing one time database migration, may take a few minutes..." + EOL)
-
+  const width = 36
+  ...
   try {
-    await JsonMigration.run(Database.Client().$client, {
+    await JsonMigration.run(drizzle({ client: Database.Client().$client }), {
       progress: (event) => {
         const percent = Math.floor((event.current / event.total) * 100)
         ...
@@ -520,7 +516,6 @@ if (!(await Filesystem.exists(marker))) {
   } finally {
     ...
   }
-
   process.stderr.write("Database migration complete." + EOL)
 }
 ```
@@ -534,6 +529,10 @@ if (!(await Filesystem.exists(marker))) {
   - 先等待异步结果
   - 再取反
   - 表示“如果这个文件不存在”
+
+- `drizzle({ client: Database.Client().$client })`
+  - 这里不是直接把数据库 client 丢进去
+  - 而是先用 `drizzle(...)` 包装成迁移逻辑需要的数据库对象
 
 - `progress: (event) => { ... }`
   - 这是把一个回调函数作为参数传进去
@@ -566,12 +565,12 @@ if (!(await Filesystem.exists(marker))) {
 
 这是一种典型的“启动期自修复”设计。
 
-## 第十一段：`.usage(...)`、`.completion(...)`、`.command(...)`
+## 第十段：`.usage(...)`、`.command(...)` 和自定义 help 命令
 
 ### 代码
 
 ```ts
-.usage("\n" + UI.logo())
+.usage("")
 .completion("completion", "generate shell completion script")
 .command(AcpCommand)
 .command(McpCommand)
@@ -580,7 +579,7 @@ if (!(await Filesystem.exists(marker))) {
 .command(RunCommand)
 .command(GenerateCommand)
 .command(DebugCommand)
-.command(AuthCommand)
+.command(ProvidersCommand)
 .command(AgentCommand)
 .command(UpgradeCommand)
 .command(UninstallCommand)
@@ -592,29 +591,41 @@ if (!(await Filesystem.exists(marker))) {
 .command(PrCommand)
 .command(SessionCommand)
 .command(RemoteCommand)
+.command(ConfigCLICommand)
+.command(PluginCommand)
 .command(DbCommand)
+
+cli = cli.command(createHelpCommand(() => cli))
 ```
 
 ### 逐个解释
 
-#### `.usage("\n" + UI.logo())`
+#### `.usage("")`
 
-- 作用：设置帮助页的展示内容
-- 这里用了 `UI.logo()`，说明帮助页会带项目 logo
+- 作用：把默认 usage 文本清空
+- 也就是说，当前 help 的展示不再主要靠旧式 usage 文本
 
-#### `.completion("completion", "generate shell completion script")`
+#### `.completion(...)`
 
 - 作用：注册 shell 自动补全能力
-- 让 CLI 可以生成补全脚本
 
 #### `.command(XxxCommand)`
 
 - 作用：注册一个子命令
 - 每调用一次，就把一个命令模块接到根 CLI 上
 
+#### `createHelpCommand(() => cli)`
+
+- 这里不是直接传一个现成对象
+- 而是先创建一个 help 命令，再把当前 `cli` 传给它
+
 ### 运行时理解
 
-到这里，CLI 已经把自己支持的子命令列表完整挂好了。
+到这里，CLI 已经把自己支持的子命令列表挂好了。
+
+而且当前入口层不仅注册了普通 help 选项，还额外注册了：
+
+- 自定义 help 命令
 
 ### 设计意图
 
@@ -622,29 +633,9 @@ if (!(await Filesystem.exists(marker))) {
 
 - 根入口不自己实现命令
 - 根入口负责把命令模块注册进来
+- help 也是一个被接进来的命令能力
 
-## 第十二段：为什么 `WorkspaceServeCommand` 要单独注册
-
-### 代码
-
-```ts
-if (Installation.isLocal()) {
-  cli = cli.command(WorkspaceServeCommand)
-}
-```
-
-### 运行时理解
-
-这个命令不是所有环境都开放，只在本地开发环境里注册。
-
-### 设计意图
-
-这体现的是环境分层：
-
-- 某些命令只给开发期用
-- 不应该对所有发布环境暴露
-
-## 第十三段：`.fail(...)` 和 `.strict()` 在做什么
+## 第十一段：`.fail(...)` 和 `.strict()` 在做什么
 
 ### 代码
 
@@ -657,7 +648,7 @@ cli = cli
       msg?.startsWith("Invalid values:")
     ) {
       if (err) throw err
-      cli.showHelp("log")
+      cli.showHelp(show)
     }
     if (err) throw err
     process.exit(1)
@@ -674,14 +665,15 @@ cli = cli
 - `.strict()`
   - 开启严格参数校验
 
-- `.fail((msg, err) => { ... })`
-  - 定义参数解析失败时的处理策略
+- `cli.showHelp(show)`
+  - 表示调用 help 输出
+  - 并且把上面定义过的 `show()` 当作输出函数传进去
 
 ### 运行时理解
 
 这里的策略是：
 
-- 常见参数错误时，把帮助信息顺手打出来
+- 常见参数错误时，顺手把 help 按自定义方式打出来
 - 如果有真正的错误对象，就继续往外抛
 - 最后退出进程
 
@@ -690,55 +682,74 @@ cli = cli
 这说明入口层不仅在做“解析参数”，还在做两层收口：
 
 - 参数合法性收口
-- 用户体验收口
+- 帮助输出体验收口
 
-## 第十四段：最后的 `try/catch/finally`
+## 第十二段：为什么 `--help` 走了一条单独的解析分支
 
 ### 代码
 
 ```ts
 try {
-  await cli.parse()
+  if (args.includes("-h") || args.includes("--help")) {
+    await cli.parse(args, (err: Error | undefined, _argv: unknown, out: string) => {
+      if (err) throw err
+      if (!out) return
+      show(out)
+    })
+  } else {
+    await cli.parse()
+  }
+```
+
+### TS / JS 语法解释
+
+- `args.includes("--help")`
+  - 判断参数数组里是否包含某个值
+
+- `await cli.parse(args, callback)`
+  - 这里不是最简单的 `await cli.parse()`
+  - 而是传入参数和回调，拿到 help 文本后交给 `show()`
+
+- `_argv`
+  - 前面的下划线通常表示“这个参数先接着，但当前不打算使用”
+
+### 运行时理解
+
+这里把 help 场景单独拿出来处理了：
+
+- 如果用户显式传了 `-h` 或 `--help`
+- 就走 `parse(args, callback)` 这一支
+- 把帮助文本交给 `show()` 自定义展示
+
+普通场景才走：
+
+```ts
+await cli.parse()
+```
+
+### 设计意图
+
+这说明作者不满足于“默认 help 能用就行”，而是希望：
+
+- help 输出也纳入入口层统一编排
+
+这属于 CLI 体验设计的一部分。
+
+## 第十三段：最后的 `catch/finally` 是整个 CLI 生命周期的收口
+
+### 代码
+
+```ts
 } catch (e) {
   let data: Record<string, any> = {}
-
-  if (e instanceof NamedError) {
-    const obj = e.toObject()
-    Object.assign(data, {
-      ...obj.data,
-    })
-  }
-
-  if (e instanceof Error) {
-    Object.assign(data, {
-      name: e.name,
-      message: e.message,
-      cause: e.cause?.toString(),
-      stack: e.stack,
-    })
-  }
-
-  if (e instanceof ResolveMessage) {
-    Object.assign(data, {
-      name: e.name,
-      message: e.message,
-      code: e.code,
-      specifier: e.specifier,
-      referrer: e.referrer,
-      position: e.position,
-      importKind: e.importKind,
-    })
-  }
-
+  ...
   Log.Default.error("fatal", data)
-
   const formatted = FormatError(e)
   if (formatted) UI.error(formatted)
   if (formatted === undefined) {
     UI.error("Unexpected error, check log file at " + Log.file() + " for more details" + EOL)
-    process.stderr.write((e instanceof Error ? e.message : String(e)) + EOL)
+    process.stderr.write(errorMessage(e) + EOL)
   }
-
   process.exitCode = 1
 } finally {
   const exitCode = typeof process.exitCode === "number" ? process.exitCode : undefined
@@ -752,36 +763,24 @@ try {
 ### TS / JS 语法解释
 
 - `try / catch / finally`
-  - `try` 里放可能抛错的主流程
+  - `try` 里放主流程
   - `catch` 里处理错误
   - `finally` 里的代码无论是否出错都会执行
 
-- `e instanceof NamedError`
-  - 判断错误是不是 `NamedError`
-
-- `Object.assign(data, { ... })`
-  - 把额外字段合并进 `data`
-
-- `e.cause?.toString()`
-  - 这里再次用到了可选链
-  - 如果 `cause` 不存在，就不会报错
+- `let data: Record<string, any> = {}`
+  - `Record<string, any>` 可以先理解成“一个对象，key 是字符串，value 先不严格限制”
 
 - `process.exitCode = 1`
   - 这里只是先设置退出码
   - 不是立刻退出
 
 - `typeof process.exitCode === "number" ? process.exitCode : undefined`
-  - 先判断 `exitCode` 是否已经被设置
-  - 再把它传给 telemetry
+  - 先判断退出码是否真的被设置过
+  - 再传给 telemetry
 
 ### 运行时理解
 
 这一段是整个 CLI 生命周期的最后收口。
-
-#### `await cli.parse()`
-
-- 这里才真正开始解析并执行命令
-- 前面所有 yargs 链式调用都只是“搭壳”
 
 #### `catch (e)`
 
@@ -811,64 +810,46 @@ try {
 这说明入口文件不只是“命令注册表”，它还是整个 CLI 生命周期的总调度器：
 
 - 启动前统一初始化
-- 执行时统一进入 `cli.parse()`
+- 执行时统一进入解析流程
 - 出错时统一格式化和记录
 - 结束时统一清理资源
 
-## 第十五段：本课先知道、暂时不展开的 3 个点
+## 第十四段：本课先知道、暂时不展开的 4 个点
 
-### 1. `Global.Path`
-
-在这一课里，我们已经看到：
-
-```ts
-const marker = path.join(Global.Path.data, "kilo.db")
-```
+### 1. `show()`
 
 目前先记住：
 
-- `Global.Path` 提供全局目录约定
-- 比如 `data`、`config`、`log` 这些路径
+- 它是 help 输出包装器
+- 用来控制帮助页最终怎么显示
 
-### 2. `Telemetry.init()`
-
-在这一课里，我们已经看到：
-
-```ts
-await Telemetry.init({
-  dataPath: Global.Path.data,
-  version: Installation.VERSION,
-  enabled: globalCfg.experimental?.openTelemetry !== false,
-})
-```
+### 2. `Heap.start()`
 
 目前先记住：
 
-- 它不是简单开个埋点开关
-- 它在初始化一整套 telemetry / tracing 相关基础设施
+- 它属于启动期公共基础设施
+- 不是某个单独命令自己的逻辑
 
 ### 3. `migrateLegacyKiloAuth()`
-
-在这一课里，我们已经看到：
-
-```ts
-await migrateLegacyKiloAuth(
-  async () => (await Auth.get("kilo")) !== undefined,
-  async (auth) => Auth.set("kilo", auth),
-)
-```
 
 目前先记住：
 
 - 它负责兼容旧版 Kilo CLI 的鉴权数据
 - 启动期就会尝试把旧数据迁移到新格式
 
+### 4. `JsonMigration.run(...)`
+
+目前先记住：
+
+- 它不是某个命令里的业务步骤
+- 而是启动前的底层存储准备动作
+
 ## 本课结论
 
 到这里，我们已经明确了：
 
 - `index.ts` 是 CLI 的组合根
-- 它负责装配命令、日志、遥测、鉴权迁移和进程级兜底处理
+- 它负责装配命令、帮助输出、日志、遥测、鉴权迁移、数据库迁移和退出清理
 - 入口文件最重要的职责不是写业务，而是统一初始化、注册、收口和清理
 - `yargs` 这条链是在定义根 CLI 的公共外壳和全局选项
 - `middleware` 不只是参数解析钩子，它还承担平台级基础设施初始化
@@ -878,5 +859,6 @@ await migrateLegacyKiloAuth(
 
 下一课沿着真实调用链继续往下：
 
-- 先进入 `packages/opencode/src/cli/cmd/serve.ts`
+- 进入 [serve.ts](../../packages/opencode/src/cli/cmd/serve.ts)
 - 看 `ServeCommand` 这个命令对象到底长什么样
+

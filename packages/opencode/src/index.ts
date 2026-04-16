@@ -78,7 +78,6 @@ process.on("uncaughtException", (e) => {
 })
 
 const args = hideBin(process.argv)
-process.on("SIGHUP", () => process.exit())
 
 function show(out: string) {
   const text = out.trimStart()
@@ -179,7 +178,7 @@ let cli = yargs(args) // kilocode_change
             last = percent
             if (tty) {
               const fill = Math.round((percent / 100) * width)
-              const bar = `${"鈻?.repeat(fill)}${"锝?.repeat(width - fill)}`
+              const bar = `${"■".repeat(fill)}${"･".repeat(width - fill)}`
               process.stderr.write(
                 `\r${orange}${bar} ${percent.toString().padStart(3)}%${reset} ${muted}${event.label.padEnd(12)} ${event.current}/${event.total}${reset}`,
               )
@@ -307,6 +306,9 @@ try {
 
   await Instance.disposeAll() // kilocode_change - safety net disposal (no-op if already disposed)
 
-  //鏌愪簺瀛愯繘绋嬫棤娉曞 SIGTERM 鍜岀被浼间俊鍙峰仛鍑烘纭弽搴斻€?  //鏈€鍊煎緱娉ㄦ剰鐨勬槸锛屼竴浜涘熀浜?docker-container 鐨?MCP 鏈嶅姟鍣ㄤ笉浼氬鐞嗘绫讳俊鍙凤紝闄ら潪
-  //浣跨敤 `docker run --init` 杩愯銆?  //鏄惧紡閫€鍑轰互閬垮厤浠讳綍鎸傝捣鐨勫瓙杩涚▼銆?  process.exit()
+  // Some subprocesses don't react properly to SIGTERM and similar signals.
+  // Most notably, some docker-container-based MCP servers don't handle such signals unless
+  // run using `docker run --init`.
+  // Explicitly exit to avoid any hanging subprocesses.
+  process.exit()
 }

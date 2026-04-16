@@ -4,15 +4,38 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
-import { Skill } from "../../skill/skill"
+import { Skill } from "../../skill"
 import { Agent } from "../../agent/agent"
 import { lazy } from "../../util/lazy"
 import { errors } from "../error"
 import { SessionImportRoutes } from "../../kilocode/session-import/routes"
+import { HeapSnapshot } from "../../kilocode/cli/heap-snapshot"
 
 export const KilocodeRoutes = lazy(() =>
   new Hono()
     .route("/session-import", SessionImportRoutes())
+    .post(
+      "/heap/snapshot",
+      describeRoute({
+        summary: "Write heap snapshot",
+        description: "Write a heap snapshot for the CLI process to the log directory.",
+        operationId: "kilocode.heap.snapshot",
+        responses: {
+          200: {
+            description: "Heap snapshot file path",
+            content: {
+              "application/json": {
+                schema: resolver(z.string()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        return c.json(HeapSnapshot.write())
+      },
+    )
     .post(
       "/skill/remove",
       describeRoute({

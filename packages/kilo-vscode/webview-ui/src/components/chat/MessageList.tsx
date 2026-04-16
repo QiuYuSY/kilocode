@@ -22,7 +22,9 @@ import { RevertBanner } from "./RevertBanner"
 import { AccountSwitcher } from "../shared/AccountSwitcher"
 import { KiloNotifications } from "./KiloNotifications"
 import { WorkingIndicator } from "../shared/WorkingIndicator"
+import { QuestionDock } from "./QuestionDock"
 import { activeUserMessageID as getActiveUserMessageID } from "../../context/session-queue"
+import type { QuestionRequest } from "../../types/messages"
 
 const KiloLogo = (): JSX.Element => {
   const iconsBaseUri = (window as { ICONS_BASE_URI?: string }).ICONS_BASE_URI || ""
@@ -40,6 +42,10 @@ const KiloLogo = (): JSX.Element => {
 interface MessageListProps {
   onSelectSession?: (id: string) => void
   onShowHistory?: () => void
+  /** Non-tool question requests to render inline at the bottom of the message list */
+  questions?: () => QuestionRequest[]
+  /** When true (subagent viewer), replace the welcome screen with an initializing indicator */
+  readonly?: boolean
 }
 
 export const MessageList: Component<MessageListProps> = (props) => {
@@ -103,14 +109,19 @@ export const MessageList: Component<MessageListProps> = (props) => {
         role="log"
         aria-live="polite"
       >
-        <div ref={autoScroll.contentRef} class={isEmpty() ? "message-list-content-empty" : undefined}>
+        <div ref={autoScroll.contentRef} class={isEmpty() ? "message-list-content-empty" : "message-list-content"}>
           <Show when={session.loading()}>
             <div class="message-list-loading" role="status">
               <Spinner />
               <span>{language.t("session.messages.loading")}</span>
             </div>
           </Show>
-          <Show when={isEmpty()}>
+          <Show when={isEmpty() && props.readonly}>
+            <div class="message-list-empty">
+              <p class="kilo-about-text">{language.t("session.messages.initializing")}</p>
+            </div>
+          </Show>
+          <Show when={isEmpty() && !props.readonly}>
             <div class="message-list-empty">
               <KiloLogo />
               <p class="kilo-about-text">{language.t("session.messages.welcome")}</p>
@@ -161,6 +172,7 @@ export const MessageList: Component<MessageListProps> = (props) => {
               <RevertBanner />
             </Show>
             <WorkingIndicator />
+            <For each={props.questions?.()}>{(req) => <QuestionDock request={req} />}</For>
           </Show>
         </div>
       </div>

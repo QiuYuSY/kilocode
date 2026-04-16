@@ -19,17 +19,9 @@ import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
 import { Spinner } from "@tui/component/spinner"
 import { selectedForeground, useTheme } from "@tui/context/theme"
-import {
-  BoxRenderable,
-  ScrollBoxRenderable,
-  addDefaultParsers,
-  MacOSScrollAccel,
-  type ScrollAcceleration,
-  TextAttributes,
-  RGBA,
-} from "@opentui/core"
+import { BoxRenderable, ScrollBoxRenderable, addDefaultParsers, TextAttributes, RGBA } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@kilocode/sdk/v2"
+import type { AssistantMessage, Part, Provider, ToolPart, UserMessage, TextPart, ReasoningPart } from "@kilocode/sdk/v2" // kilocode_change // kilocode_change
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
 import type { Tool } from "@/tool/tool"
@@ -51,7 +43,6 @@ import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import type { DialogContext } from "@tui/ui/dialog"
 import { useKeybind } from "@tui/context/keybind"
-import { Header } from "./header"
 import { parsePatch } from "diff"
 import { useDialog } from "../../ui/dialog"
 import { TodoItem } from "../../component/todo-item"
@@ -63,6 +54,7 @@ import { DialogTimeline } from "./dialog-timeline"
 import { DialogForkFromTimeline } from "./dialog-fork-from-timeline"
 import { DialogSessionRename } from "../../component/dialog-session-rename"
 import { Sidebar } from "./sidebar"
+import { SubagentFooter } from "./subagent-footer.tsx"
 import { Flag } from "@/flag/flag"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import parsers from "../../../../../../parsers-config.ts"
@@ -71,32 +63,30 @@ import { Toast, useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
 import { Editor } from "../../util/editor"
 import stripAnsi from "strip-ansi"
-import { Footer } from "./footer.tsx"
 import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
 import { Filesystem } from "@/util/filesystem"
 import { Global } from "@/global"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
+import { NetworkPrompt } from "./network" // kilocode_change
 import { DialogExportOptions } from "../../ui/dialog-export-options"
+import * as Model from "../../util/model"
 import { formatTranscript } from "../../util/transcript"
 import { UI } from "@/cli/ui.ts"
 import { useTuiConfig } from "../../context/tui-config"
-
 import { formatMarkdownTables } from "../../util/markdown" // kilocode_change
 import { bell } from "@/kilocode/bell" // kilocode_change
+import { getScrollAcceleration } from "../../util/scroll"
+import { TuiPluginRuntime } from "../../plugin"
+import { DialogGoUpsell } from "../../component/dialog-go-upsell"
+import { SessionRetry } from "@/session/retry"
 
 addDefaultParsers(parsers.parsers)
 
-class CustomSpeedScroll implements ScrollAcceleration {
-  constructor(private speed: number) {}
-
-  tick(_now?: number): number {
-    return this.speed
-  }
-
-  reset(): void {}
-}
+const GO_UPSELL_LAST_SEEN_AT = "go_upsell_last_seen_at"
+const GO_UPSELL_DONT_SHOW = "go_upsell_dont_show"
+const GO_UPSELL_WINDOW = 86_400_000 // 24 hrs
 
 const context = createContext<{
   width: number
@@ -107,6 +97,7 @@ const context = createContext<{
   showDetails: () => boolean
   showGenericToolOutput: () => boolean
   diffWrapMode: () => "word" | "none"
+  providers: () => ReadonlyMap<string, Provider>
   sync: ReturnType<typeof useSync>
   tui: ReturnType<typeof useTuiConfig>
 }>()
@@ -141,6 +132,19 @@ export function Session() {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
   })
+  // kilocode_change start
+  const network = createMemo(() => {
+    if (session()?.parentID) return []
+    return children().flatMap((x) => sync.data.network[x.id] ?? [])
+  })
+  const visible = createMemo(
+    () => !session()?.parentID && permissions().length === 0 && questions().length === 0 && network().length === 0,
+  )
+  const networkVisible = createMemo(
+    () => permissions().length === 0 && questions().length === 0 && network().length > 0,
+  )
+  const disabled = createMemo(() => permissions().length > 0 || questions().length > 0 || network().length > 0)
+  // kilocode_change end
 
   const pending = createMemo(() => {
     return messages().findLast((x) => x.role === "assistant" && !x.time.completed)?.id
@@ -181,6 +185,15 @@ export function Session() {
       },
     ),
   )
+  createEffect(
+    on(
+      () => [route.sessionID, network().length] as const,
+      ([id, len], prev) => {
+        if (!prev || prev[0] !== id) return
+        if (len > prev[1] && bellEnabled()) bell()
+      },
+    ),
+  )
   // kilocode_change end
 
   const dimensions = useTerminalDimensions()
@@ -191,8 +204,7 @@ export function Session() {
   const [timestamps, setTimestamps] = kv.signal<"hide" | "show">("timestamps", "hide")
   const [showDetails, setShowDetails] = kv.signal("tool_details_visibility", true)
   const [showAssistantMetadata, setShowAssistantMetadata] = kv.signal("assistant_metadata_visibility", true)
-  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", true)
-  const [showHeader, setShowHeader] = kv.signal("header_visible", true)
+  const [showScrollbar, setShowScrollbar] = kv.signal("scrollbar_visible", false)
   const [diffWrapMode] = kv.signal<"word" | "none">("diff_wrap_mode", "word")
   const [animationsEnabled, setAnimationsEnabled] = kv.signal("animations_enabled", true)
   const [bellEnabled, setBellEnabled] = kv.signal("bell_enabled", true)
@@ -207,24 +219,9 @@ export function Session() {
   })
   const showTimestamps = createMemo(() => timestamps() === "show")
   const contentWidth = createMemo(() => dimensions().width - (sidebarVisible() ? 42 : 0) - 4)
+  const providers = createMemo(() => Model.index(sync.data.provider))
 
-  const scrollAcceleration = createMemo(() => {
-    const tui = tuiConfig
-    if (tui?.scroll_acceleration?.enabled) {
-      return new MacOSScrollAccel()
-    }
-    if (tui?.scroll_speed) {
-      return new CustomSpeedScroll(tui.scroll_speed)
-    }
-
-    return new CustomSpeedScroll(3)
-  })
-
-  createEffect(() => {
-    if (session()?.workspaceID) {
-      sdk.setWorkspace(session()?.workspaceID)
-    }
-  })
+  const scrollAcceleration = createMemo(() => getScrollAcceleration(tuiConfig))
 
   createEffect(async () => {
     await sync.session
@@ -246,12 +243,7 @@ export function Session() {
   const sdk = useSDK()
 
   // Handle initial prompt from fork
-  createEffect(() => {
-    if (route.initialPrompt && prompt) {
-      prompt.set(route.initialPrompt)
-    }
-  })
-
+  let seeded = false
   let lastSwitch: string | undefined = undefined
   sdk.event.on("message.part.updated", (evt) => {
     const part = evt.properties.part
@@ -268,10 +260,34 @@ export function Session() {
   })
 
   let scroll: ScrollBoxRenderable
-  let prompt: PromptRef
+  let prompt: PromptRef | undefined
+  const bind = (r: PromptRef | undefined) => {
+    prompt = r
+    promptRef.set(r)
+    if (seeded || !route.initialPrompt || !r) return
+    seeded = true
+    r.set(route.initialPrompt)
+  }
   const keybind = useKeybind()
   const dialog = useDialog()
   const renderer = useRenderer()
+
+  sdk.event.on("session.status", (evt) => {
+    if (evt.properties.sessionID !== route.sessionID) return
+    if (evt.properties.status.type !== "retry") return
+    if (evt.properties.status.message !== SessionRetry.GO_UPSELL_MESSAGE) return
+    if (dialog.stack.length > 0) return
+
+    const seen = kv.get(GO_UPSELL_LAST_SEEN_AT)
+    if (typeof seen === "number" && Date.now() - seen < GO_UPSELL_WINDOW) return
+
+    if (kv.get(GO_UPSELL_DONT_SHOW)) return
+
+    DialogGoUpsell.show(dialog).then((dontShowAgain) => {
+      if (dontShowAgain) kv.set(GO_UPSELL_DONT_SHOW, true)
+      kv.set(GO_UPSELL_LAST_SEEN_AT, Date.now())
+    })
+  })
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
@@ -377,7 +393,7 @@ export function Session() {
     if (children().length === 1) return
 
     const sessions = children().filter((x) => !!x.parentID)
-    let next = sessions.findIndex((x) => x.id === session()?.id) + direction
+    let next = sessions.findIndex((x) => x.id === session()?.id) - direction
 
     if (next >= sessions.length) next = 0
     if (next < 0) next = sessions.length - 1
@@ -419,12 +435,22 @@ export function Session() {
           dialog.clear()
           return
         }
+        if (!kv.get("share_consent", false)) {
+          const ok = await DialogConfirm.show(dialog, "Share Session", "Are you sure you want to share it?")
+          if (ok !== true) return
+          kv.set("share_consent", true)
+        }
         await sdk.client.session
           .share({
             sessionID: route.sessionID,
           })
           .then((res) => copy(res.data!.share!.url))
-          .catch(() => toast.show({ message: "Failed to share session", variant: "error" }))
+          .catch((error) => {
+            toast.show({
+              message: error instanceof Error ? error.message : "Failed to share session",
+              variant: "error",
+            })
+          })
         dialog.clear()
       },
     },
@@ -458,7 +484,7 @@ export function Session() {
               if (child) scroll.scrollBy(child.y - scroll.y - 1)
             }}
             sessionID={route.sessionID}
-            setPrompt={(promptInfo) => prompt.set(promptInfo)}
+            setPrompt={(promptInfo) => prompt?.set(promptInfo)}
           />
         ))
       },
@@ -527,7 +553,12 @@ export function Session() {
             sessionID: route.sessionID,
           })
           .then(() => toast.show({ message: "Session unshared successfully", variant: "success" }))
-          .catch(() => toast.show({ message: "Failed to unshare session", variant: "error" }))
+          .catch((error) => {
+            toast.show({
+              message: error instanceof Error ? error.message : "Failed to unshare session",
+              variant: "error",
+            })
+          })
         dialog.clear()
       },
     },
@@ -554,7 +585,7 @@ export function Session() {
             toBottom()
           })
         const parts = sync.data.part[message.id]
-        prompt.set(
+        prompt?.set(
           parts.reduce(
             (agg, part) => {
               if (part.type === "text") {
@@ -587,7 +618,7 @@ export function Session() {
           sdk.client.session.unrevert({
             sessionID: route.sessionID,
           })
-          prompt.set({ input: "", parts: [] })
+          prompt?.set({ input: "", parts: [] })
           return
         }
         sdk.client.session.revert({
@@ -664,15 +695,6 @@ export function Session() {
       category: "Session",
       onSelect: (dialog) => {
         setShowScrollbar((prev) => !prev)
-        dialog.clear()
-      },
-    },
-    {
-      title: showHeader() ? "Hide header" : "Show header",
-      value: "session.toggle.header",
-      category: "Session",
-      onSelect: (dialog) => {
-        setShowHeader((prev) => !prev)
         dialog.clear()
       },
     },
@@ -883,6 +905,7 @@ export function Session() {
               thinking: showThinking(),
               toolDetails: showDetails(),
               assistantMetadata: showAssistantMetadata(),
+              providers: sync.data.provider,
             },
           )
           await Clipboard.copy(transcript)
@@ -927,6 +950,7 @@ export function Session() {
               thinking: options.thinking,
               toolDetails: options.toolDetails,
               assistantMetadata: options.assistantMetadata,
+              providers: sync.data.provider,
             },
           )
 
@@ -938,12 +962,12 @@ export function Session() {
             const filename = options.filename.trim()
             const filepath = path.join(exportDir, filename)
 
-            await Bun.write(filepath, transcript)
+            await Filesystem.write(filepath, transcript)
 
             // Open with EDITOR if available
             const result = await Editor.open({ value: transcript, renderer })
             if (result !== undefined) {
-              await Bun.write(filepath, result)
+              await Filesystem.write(filepath, result)
             }
 
             toast.show({ message: `Session exported to ${filename}`, variant: "success" })
@@ -1072,16 +1096,14 @@ export function Session() {
         showDetails,
         showGenericToolOutput,
         diffWrapMode,
+        providers,
         sync,
         tui: tuiConfig,
       }}
     >
       <box flexDirection="row">
-        <box flexGrow={1} paddingBottom={1} paddingTop={1} paddingLeft={2} paddingRight={2} gap={1}>
+        <box flexGrow={1} paddingBottom={1} paddingLeft={2} paddingRight={2} gap={1}>
           <Show when={session()}>
-            <Show when={showHeader() && (!sidebarVisible() || !wide())}>
-              <Header />
-            </Show>
             <scrollbox
               ref={(r) => (scroll = r)}
               viewportOptions={{
@@ -1100,6 +1122,14 @@ export function Session() {
               flexGrow={1}
               scrollAcceleration={scrollAcceleration()}
             >
+              <box height={1} />
+              {/* kilocode_change start */}
+              <Show when={session()?.parentID && messages().length === 0}>
+                <box paddingLeft={3}>
+                  <text fg={theme.textMuted}>↳ Initializing...</text>
+                </box>
+              </Show>
+              {/* kilocode_change end */}
               <For each={messages()}>
                 {(message, index) => (
                   <Switch>
@@ -1176,7 +1206,7 @@ export function Session() {
                             <DialogMessage
                               messageID={message.id}
                               sessionID={route.sessionID}
-                              setPrompt={(promptInfo) => prompt.set(promptInfo)}
+                              setPrompt={(promptInfo) => prompt?.set(promptInfo)}
                             />
                           ))
                         }}
@@ -1200,30 +1230,46 @@ export function Session() {
               <Show when={permissions().length > 0}>
                 <PermissionPrompt request={permissions()[0]} />
               </Show>
+              {/* kilocode_change start */}
+              {/* kilocode_change start */}
               <Show when={permissions().length === 0 && questions().length > 0}>
                 <QuestionPrompt request={questions()[0]} />
               </Show>
-              <Prompt
-                visible={!session()?.parentID && permissions().length === 0 && questions().length === 0}
-                ref={(r) => {
-                  prompt = r
-                  promptRef.set(r)
-                  // Apply initial prompt when prompt component mounts (e.g., from fork)
-                  if (route.initialPrompt) {
-                    r.set(route.initialPrompt)
-                  }
-                }}
-                disabled={permissions().length > 0 || questions().length > 0}
-                onSubmit={() => {
-                  toBottom()
-                }}
-                sessionID={route.sessionID}
-              />
+              {/* kilocode_change end */}
+              {/* kilocode_change end */}
+              <Show when={session()?.parentID}>
+                <SubagentFooter />
+              </Show>
+              {/* kilocode_change start */}
+              <Show when={networkVisible()}>
+                <NetworkPrompt request={network()[0]} />
+              </Show>
+              {/* kilocode_change end */}
+              <Show when={visible()}>
+                <TuiPluginRuntime.Slot
+                  name="session_prompt"
+                  mode="replace"
+                  session_id={route.sessionID}
+                  visible={visible()}
+                  disabled={disabled()}
+                  on_submit={toBottom}
+                  ref={bind}
+                >
+                  <Prompt
+                    visible={visible()}
+                    ref={bind}
+                    disabled={disabled()}
+                    onSubmit={() => {
+                      toBottom()
+                    }}
+                    sessionID={route.sessionID}
+                    right={<TuiPluginRuntime.Slot name="session_prompt_right" session_id={route.sessionID} />}
+                  />
+                </TuiPluginRuntime.Slot>
+              </Show>
             </box>
           </Show>
           <Toast />
-          {/* kilocode_change */}
-          <Footer />
         </box>
         <Show when={sidebarVisible()}>
           <Switch>
@@ -1271,7 +1317,6 @@ function UserMessage(props: {
   const local = useLocal()
   const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
   const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
-  const sync = useSync()
   const { theme } = useTheme()
   const [hover, setHover] = createSignal(false)
   const queued = createMemo(() => props.pending && props.message.id > props.pending)
@@ -1358,10 +1403,12 @@ function UserMessage(props: {
 }
 
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+  const ctx = use()
   const local = useLocal()
   const { theme } = useTheme()
   const sync = useSync()
   const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
+  const model = createMemo(() => Model.name(ctx.providers(), props.message.providerID, props.message.modelID))
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
@@ -1438,7 +1485,7 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
                 ▣{" "}
               </span>{" "}
               <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
-              <span style={{ fg: theme.textMuted }}> · {props.message.modelID}</span>
+              <span style={{ fg: theme.textMuted }}> · {model()}</span>
               <Show when={duration()}>
                 <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
               </Show>
@@ -1508,6 +1555,8 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
               streaming={true}
               content={props.part.text.trim()}
               conceal={ctx.conceal()}
+              fg={theme.markdownText}
+              bg={theme.background}
             />
           </Match>
           <Match when={!Flag.KILO_EXPERIMENTAL_MARKDOWN}>
@@ -1619,7 +1668,7 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   )
 }
 
-type ToolProps<T extends Tool.Info> = {
+type ToolProps<T> = {
   input: Partial<Tool.InferParameters<T>>
   metadata: Partial<Tool.InferMetadata<T>>
   permission: Record<string, any>
@@ -1665,17 +1714,6 @@ function GenericTool(props: ToolProps<any>) {
   )
 }
 
-function ToolTitle(props: { fallback: string; when: any; icon: string; children: JSX.Element }) {
-  const { theme } = useTheme()
-  return (
-    <text paddingLeft={3} fg={props.when ? theme.textMuted : theme.text}>
-      <Show fallback={<>~ {props.fallback}</>} when={props.when}>
-        <span style={{ bold: true }}>{props.icon}</span> {props.children}
-      </Show>
-    </text>
-  )
-}
-
 function InlineTool(props: {
   icon: string
   iconColor?: RGBA
@@ -1710,6 +1748,7 @@ function InlineTool(props: {
 
   const denied = createMemo(
     () =>
+      error()?.includes("QuestionRejectedError") ||
       error()?.includes("rejected permission") ||
       error()?.includes("specified a rule") ||
       error()?.includes("user dismissed"),
@@ -2012,10 +2051,7 @@ function WebSearch(props: ToolProps<any>) {
 }
 
 function Task(props: ToolProps<typeof TaskTool>) {
-  const { theme } = useTheme()
-  const keybind = useKeybind()
   const { navigate } = useRoute()
-  const local = useLocal()
   const sync = useSync()
 
   onMount(() => {
@@ -2046,13 +2082,20 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
   const content = createMemo(() => {
     if (!props.input.description) return ""
-    let content = [`Task ${props.input.description}`]
+    let content = [`${Locale.titlecase(props.input.subagent_type ?? "General")} Task — ${props.input.description}`]
 
-    if (isRunning() && tools().length > 0) {
-      // content[0] += ` · ${tools().length} toolcalls`
-      if (current()) content.push(`↳ ${Locale.titlecase(current()!.tool)} ${(current()!.state as any).title}`)
-      else content.push(`↳ ${tools().length} toolcalls`)
+    // kilocode_change start
+    if (isRunning()) {
+      if (tools().length === 0) {
+        content.push(`↳ Starting...`)
+      } else if (current()) {
+        // content[0] += ` · ${tools().length} toolcalls`
+        content.push(`↳ ${Locale.titlecase(current()!.tool)} ${(current()!.state as any).title}`)
+      } else {
+        content.push(`↳ ${tools().length} toolcalls`)
+      }
     }
+    // kilocode_change end
 
     if (props.part.state.status === "completed") {
       content.push(`└ ${tools().length} toolcalls · ${Locale.duration(duration())}`)
@@ -2190,7 +2233,7 @@ function ApplyPatch(props: ToolProps<typeof ApplyPatchTool>) {
                   </text>
                 }
               >
-                <Diff diff={file.diff} filePath={file.filePath} />
+                <Diff diff={file.patch} filePath={file.filePath} />
                 <Diagnostics diagnostics={props.metadata.diagnostics} filePath={file.movePath ?? file.filePath} />
               </Show>
             </BlockTool>

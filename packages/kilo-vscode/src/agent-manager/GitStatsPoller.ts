@@ -1,8 +1,9 @@
 import * as fs from "fs"
 import * as path from "path"
-import type { KiloClient, FileDiff } from "@kilocode/sdk/v2/client"
+import type { KiloClient, SnapshotFileDiff } from "@kilocode/sdk/v2/client"
 import { remoteRef, type Worktree } from "./WorktreeStateManager"
 import type { GitOps } from "./GitOps"
+import type { Semaphore } from "./semaphore"
 import { normalizePath } from "./git-import"
 
 export interface WorktreeStats {
@@ -26,6 +27,8 @@ export interface LocalStats {
 export interface WorktreePresence {
   worktreeId: string
   missing: boolean
+  /** Current branch from `git worktree list`, if available. */
+  branch?: string
 }
 
 export interface WorktreePresenceResult {
@@ -43,6 +46,9 @@ interface GitStatsPollerOptions {
   onWorktreePresence?: (result: WorktreePresenceResult) => void
   log: (...args: unknown[]) => void
   intervalMs?: number
+  /** Shared concurrency gate for child process spawning. */
+  semaphore?: Semaphore
+  hiddenIntervalMs?: number
 }
 
 export class GitStatsPoller {
@@ -52,31 +58,50 @@ export class GitStatsPoller {
   private lastHash: string | undefined
   private lastLocalHash: string | undefined
   private lastLocalStats: LocalStats | undefined
-  private lastStats: Record<
-    string,
-    { files: number; additions: number; deletions: number; ahead: number; behind: number }
-  > = {}
+  private lastStats: Record<string, WorktreeStats> = {}
   private readonly intervalMs: number
+  private readonly hiddenIntervalMs: number
   private readonly git: GitOps
   private skipWorktreeIds = new Set<string>()
+  private visible = true
 
   constructor(private readonly options: GitStatsPollerOptions) {
     this.intervalMs = options.intervalMs ?? 5000
+    this.hiddenIntervalMs = options.hiddenIntervalMs ?? 60000
     this.git = options.git
   }
 
-  skipWorktree(id: string): void {
-    this.skipWorktreeIds.add(id)
+  setVisible(visible: boolean): void {
+    if (this.visible === visible) return
+    this.visible = visible
+    if (this.active && this.timer) {
+      clearTimeout(this.timer)
+      this.timer = undefined
+      this.schedule(this.visible ? this.intervalMs : this.hiddenIntervalMs)
+    }
   }
 
-  unskipWorktree(id: string): void {
-    this.skipWorktreeIds.delete(id)
+  /** Replace the entire skip set with the given IDs. */
+  syncSkips(ids: Set<string>): WorktreeStats[] | undefined {
+    this.skipWorktreeIds = ids
+    const stats = Object.values(this.lastStats).filter((item) => !ids.has(item.worktreeId))
+    if (stats.length === 0) return undefined
+    const hash = this.hash(stats)
+    if (hash === this.lastHash) return undefined
+    this.lastHash = hash
+    return stats
+  }
+
+  /** Pre-emptively exclude a single worktree (e.g. before deletion). */
+  skipWorktree(id: string): void {
+    this.skipWorktreeIds.add(id)
   }
 
   setEnabled(enabled: boolean): void {
     if (enabled) {
       if (this.active) return
-      this.start()
+      this.active = true
+      void this.poll()
       return
     }
     this.stop()
@@ -95,10 +120,8 @@ export class GitStatsPoller {
     this.lastStats = {}
   }
 
-  private start(): void {
-    this.stop()
-    this.active = true
-    void this.poll()
+  private currentInterval(): number {
+    return this.visible ? this.intervalMs : this.hiddenIntervalMs
   }
 
   private schedule(delay: number): void {
@@ -114,7 +137,7 @@ export class GitStatsPoller {
     this.busy = true
     return this.fetch().finally(() => {
       this.busy = false
-      this.schedule(this.intervalMs)
+      this.schedule(this.currentInterval())
     })
   }
 
@@ -143,8 +166,14 @@ export class GitStatsPoller {
     const missing = new Set(
       presence.degraded ? [] : presence.worktrees.filter((item) => item.missing).map((item) => item.worktreeId),
     )
-    const active = worktrees.filter((wt) => !missing.has(wt.id) && !this.skipWorktreeIds.has(wt.id))
+    const available = worktrees.filter((wt) => !missing.has(wt.id))
+    const ids = new Set(available.map((wt) => wt.id))
+    for (const id of Object.keys(this.lastStats)) {
+      if (!ids.has(id)) delete this.lastStats[id]
+    }
+    const active = available.filter((wt) => !this.skipWorktreeIds.has(wt.id))
     if (active.length === 0) {
+      if (available.length > 0) return
       if (this.lastHash === "") return
       this.lastHash = ""
       this.lastStats = {}
@@ -152,60 +181,49 @@ export class GitStatsPoller {
       return
     }
 
+    // Gate the HTTP diffSummary call through the semaphore but NOT the
+    // aheadBehind call — that goes through GitOps.raw() which already
+    // acquires the same semaphore. Wrapping both would deadlock.
+    const gate = this.options.semaphore
+    const diff = (dir: string, base: string) => {
+      const invoke = () => client.worktree.diffSummary({ directory: dir, base }, { throwOnError: true })
+      return gate ? gate.run(invoke) : invoke()
+    }
     const stats = (
       await Promise.all(
         active.map(async (wt) => {
           try {
             const base = remoteRef(wt)
-            const [{ data: diffs }, ab] = await Promise.all([
-              client.worktree.diffSummary({ directory: wt.path, base }, { throwOnError: true }),
-              this.git.aheadBehind(wt.path, base),
-            ])
+            const [{ data: diffs }, ab] = await Promise.all([diff(wt.path, base), this.git.aheadBehind(wt.path, base)])
             const files = diffs.length
-            const additions = diffs.reduce((sum: number, diff: FileDiff) => sum + diff.additions, 0)
-            const deletions = diffs.reduce((sum: number, diff: FileDiff) => sum + diff.deletions, 0)
+            const additions = diffs.reduce((sum: number, diff: SnapshotFileDiff) => sum + diff.additions, 0)
+            const deletions = diffs.reduce((sum: number, diff: SnapshotFileDiff) => sum + diff.deletions, 0)
             return { worktreeId: wt.id, files, additions, deletions, ahead: ab.ahead, behind: ab.behind }
           } catch (err) {
             this.options.log(`Failed to fetch worktree stats for ${wt.branch} (${wt.path}):`, err)
-            const prev = this.lastStats[wt.id]
-            if (!prev) return undefined
-            return {
-              worktreeId: wt.id,
-              files: prev.files,
-              additions: prev.additions,
-              deletions: prev.deletions,
-              ahead: prev.ahead,
-              behind: prev.behind,
-            }
+            return this.lastStats[wt.id]
           }
         }),
       )
     ).filter((item): item is WorktreeStats => !!item)
 
-    if (stats.length === 0) return
+    for (const item of stats) this.lastStats[item.worktreeId] = item
 
-    const hash = stats
+    const visible = Object.values(this.lastStats).filter((item) => !this.skipWorktreeIds.has(item.worktreeId))
+    if (visible.length === 0) return
+
+    const hash = this.hash(visible)
+    if (hash === this.lastHash) return
+    this.lastHash = hash
+    this.options.onStats(visible)
+  }
+
+  private hash(stats: WorktreeStats[]): string {
+    return stats
       .map(
         (item) => `${item.worktreeId}:${item.files}:${item.additions}:${item.deletions}:${item.ahead}:${item.behind}`,
       )
       .join("|")
-    if (hash === this.lastHash) return
-    this.lastHash = hash
-    this.lastStats = stats.reduce(
-      (acc, item) => {
-        acc[item.worktreeId] = {
-          files: item.files,
-          additions: item.additions,
-          deletions: item.deletions,
-          ahead: item.ahead,
-          behind: item.behind,
-        }
-        return acc
-      },
-      {} as Record<string, { files: number; additions: number; deletions: number; ahead: number; behind: number }>,
-    )
-
-    this.options.onStats(stats)
   }
 
   private async probeWorktreePresence(worktrees: Worktree[]): Promise<WorktreePresenceResult> {
@@ -231,7 +249,8 @@ export class GitStatsPoller {
           () => false,
         )
         const missing = !exists || !tracked.has(normalized)
-        return { worktreeId: wt.id, missing }
+        const branch = tracked.get(normalized)
+        return { worktreeId: wt.id, missing, branch }
       }),
     )
 
@@ -257,13 +276,15 @@ export class GitStatsPoller {
       try {
         if (base && client) {
           this.options.log(`Local stats: using HTTP client with base=${base}`)
+          const gate = this.options.semaphore
+          const invoke = () => client.worktree.diffSummary({ directory: root, base }, { throwOnError: true })
           const [{ data: diffs }, ab] = await Promise.all([
-            client.worktree.diffSummary({ directory: root, base }, { throwOnError: true }),
+            gate ? gate.run(invoke) : invoke(),
             this.git.aheadBehind(root, base),
           ])
           files = diffs.length
-          additions = diffs.reduce((sum: number, d: FileDiff) => sum + d.additions, 0)
-          deletions = diffs.reduce((sum: number, d: FileDiff) => sum + d.deletions, 0)
+          additions = diffs.reduce((sum: number, d: SnapshotFileDiff) => sum + d.additions, 0)
+          deletions = diffs.reduce((sum: number, d: SnapshotFileDiff) => sum + d.deletions, 0)
           ahead = ab.ahead
           behind = ab.behind
         } else {
